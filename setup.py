@@ -9,3 +9,5 @@ setup(name='pytwig',
       license='MIT',
       packages=['pytwig'],
       zip_safe=False)
+
+# python setup.py sdist upload
