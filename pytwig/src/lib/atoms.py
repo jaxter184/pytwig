@@ -10,6 +10,7 @@ import struct
 idCount = 0
 ## Serializes all device atoms
 
+# Adds leading 0s to a hex value
 def hexPad(data, pad = 8):
 	if isinstance(data, bytearray):
 		return bytearray.fromhex((pad/2-len(value))*'00') + data
@@ -52,7 +53,7 @@ def serialize(obj, state = None):
 		return serialize(obj.fields, state)
 	return obj
 
-def resetId(): #geez this feels so hacky -jaxter184
+def resetId(): # geez this feels so hacky -jaxter184
 	global idCount
 	idCount = 0
 
@@ -62,13 +63,13 @@ class Reference:
 
 	def __str__(self):
 		return "<Reference: " + str(self.id) + '>'
-	
+
 	def setID(self, id):
 		self.id = id
-	
+
 	def serialize(self):
 		return {'object_ref': self.id}
-	
+
 	def encode(self):
 		output = bytearray(b'')
 		output += hexPad(self.id,8)
@@ -79,7 +80,7 @@ class Color:
 		self.fields = {'type': "color", 'data': [rd, gr, bl, al]}
 		if (al == 1.0):
 			self.fields['data'] = self.fields['data'][:-1]
-	
+
 	def encode(self):
 		output = bytearray(b'')
 		count = 0
@@ -90,7 +91,7 @@ class Color:
 		if count == 3:
 			output += struct.pack('<f', 1.0)
 		return output
-		
+
 class Atom:
 
 	def __init__(self, classname = '', fields = None,):
@@ -103,10 +104,10 @@ class Atom:
 			self.fields = OrderedDict([])
 		self.id = idCount #might need to make a manual override for id number
 		idCount+=1
-	
+
 	def setID(self, id):
 		self.id = id
-	
+
 	def __str__(self): #just some debugging tools -jaxter184
 		#return self.stringify(0)
 		#return self.listFields()
@@ -126,14 +127,14 @@ class Atom:
 				output += str(self.fields[data])
 			output += '\n'
 		return output
-	
+
 	def listFields(self):
 		output = ''
 		output += "class : " +  str(self.classname) + '\n'
 		for data in self.fields:
 			output += data + '\n'
 		return output
-	
+
 	def extractNum(self, text = None):
 		if text == None:
 			text = self.classname
@@ -145,7 +146,7 @@ class Atom:
 			return int(str(text[start+1:end]))
 		else:
 			return text
-	
+
 	def encodeField(self, output, data):
 		value = self.fields[data]
 		fieldNum = self.extractNum(data)
