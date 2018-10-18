@@ -110,11 +110,11 @@ def parseField():
 		return 'end here'
 	return parseType
 
-def bigOrd(text):
+def intConv(chain):
 	output = 0
-	for i in range(len(text)):
-		#print(len(text)-i - 1)
-		output += (256**(len(text)-i - 1))*(text[i])
+	for i in range(len(chain)):
+		#print(len(chain)-i - 1)
+		output += (256**(len(chain)-i - 1))*chain[i]
 	return output
 
 def bigChr(chain):
@@ -122,13 +122,6 @@ def bigChr(chain):
 	for i in range(len(chain)):
 		#print(len(text)-i - 1)
 		output += chr(chain[i])
-	return output
-
-def intConv(chain):
-	output = 0
-	for i in range(len(chain)):
-		#print(len(chain)-i - 1)
-		output += (256**(len(chain)-i - 1))*chain[i]
 	return output
 
 def addField(fieldName):

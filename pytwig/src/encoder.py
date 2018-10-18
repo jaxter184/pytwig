@@ -2,6 +2,8 @@ import struct
 from collections import OrderedDict
 from src.lib import atoms, route
 
+# This file contains functions for converting JSON trees to Bitwig bytecode
+
 endFlag = 0
 
 def bigOrd(text):
