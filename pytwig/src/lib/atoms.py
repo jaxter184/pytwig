@@ -1,14 +1,11 @@
-#Class declarations of atoms and references and special data types that only atoms use (modified from original)
-#author: stylemistake https://github.com/stylemistake
+# Class declarations of atoms and references and special data types that only atoms use (modified from original)
+# author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
 from src.lib import util
 from src.lib.luts import typeLists
 import uuid
 import struct
-
-idCount = 0
-## Serializes all device atoms
 
 # Adds leading 0s to a hex value
 def hexPad(data, pad = 8):
@@ -57,42 +54,10 @@ def resetId(): # geez this feels so hacky -jaxter184
 	global idCount
 	idCount = 0
 
-class Reference:
-	def __init__(self, id = 0):
-		self.id = id
-
-	def __str__(self):
-		return "<Reference: " + str(self.id) + '>'
-
-	def setID(self, id):
-		self.id = id
-
-	def serialize(self):
-		return {'object_ref': self.id}
-
-	def encode(self):
-		output = bytearray(b'')
-		output += hexPad(self.id,8)
-		return output
-
-class Color:
-	def __init__(self, rd, gr, bl, al):
-		self.fields = {'type': "color", 'data': [rd, gr, bl, al]}
-		if (al == 1.0):
-			self.fields['data'] = self.fields['data'][:-1]
-
-	def encode(self):
-		output = bytearray(b'')
-		count = 0
-		for item in self.fields["data"]:
-			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
-			output += hexPad(flVal,8)
-			count += 1
-		if count == 3:
-			output += struct.pack('<f', 1.0)
-		return output
-
 class Atom:
+	classname = None
+	fields = None
+	#classnum?
 
 	def __init__(self, classname = '', fields = None,):
 		global idCount
@@ -257,7 +222,7 @@ class Atom:
 						#print("atoms.py: 'None' in atom encoder. obj: " + str(fieldNum)) #temporarily disabling this error warning because i have no clue what any of these fields are
 						pass
 					else:
-						print("jaxter stop being a lazy poop and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
+						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
 			else:
 				print("missing type in typeLists.fieldList: " + str(fieldNum))
 		return output
@@ -292,72 +257,40 @@ class Atom:
 	def set_fields(self, fields): #for replacing the entire set of fields. maybe unnecessary.
 		self.fields = fields
 
+class Reference(BW_Object):
+	def __init__(self, id = 0):
+		self.id = id
 
-class Modulator(Atom):
+	def __str__(self):
+		return "<Reference: " + str(self.id) + '>'
 
-	classname = 'float_core.modulator_contents'
-
-	def __init__(self, name, description = 'Custom modulator',
-			header = 'BtWg000100010088000015e50000000000000000'):
-		self.fields = OrderedDict([
-			('settings', None),
-			('child_components', []),
-			('panels', []),
-			('proxy_in_ports', []),
-			('proxy_out_ports', []),
-			('fft_order', 0),
-			('context_menu_panel', None),
-			('device_UUID', '6146bcd7-f813-44c6-96e5-2e9d77093a81'),
-			('device_name', name),
-			('description', description),
-			('creator', 'Bitwig'),
-			('comment', ''),
-			('keywords', ''),
-			('category', 'Control'),
-			('has_been_modified', True),
-			('detail_panel', None),
-			('can_be_polyphonic', True),
-			('should_be_polyphonic_by_default', False),
-			('should_enable_perform_mode_by_default', False)
-		])
-		self.meta = Meta(name, description, 'application/bitwig-modulator')
-		self.header = header
-		self.set_uuid(util.uuid_from_text(name))
-
-	def add_component(self, atom):
-		self.fields['child_components'].append(atom)
-		return self
-
-	def add_panel(self, atom):
-		self.fields['panels'].append(atom)
-		return self
-
-	def add_proxy_in(self, atom):
-		self.fields['proxy_in_ports'].append(atom)
-		return self
-
-	def add_proxy_out(self, atom):
-		self.fields['proxy_out_ports'].append(atom)
-		return self
-
-	def set_description(self, value):
-		self.meta.fields['device_description'] = value
-		self.fields['description'] = value
-		return self
-
-	def set_uuid(self, value):
-		self.meta.fields['device_uuid'] = value
-		self.meta.fields['device_id'] = 'modulator:' + value
-		self.fields['device_UUID'] = value
-		return self
+	def setID(self, id):
+		self.id = id
 
 	def serialize(self):
-		return util.serialize_bitwig_device(OrderedDict([
-			('header', self.header),
-			('meta', serialize(self.meta)),
-			('contents', serialize(self))
-		]))
+		return {'object_ref': self.id}
 
+	def encode(self):
+		output = bytearray(b'')
+		output += hexPad(self.id,8)
+		return output
+
+class Color:
+	def __init__(self, rd, gr, bl, al):
+		self.fields = {'type': "color", 'data': [rd, gr, bl, al]}
+		if (al == 1.0):
+			self.fields['data'] = self.fields['data'][:-1]
+
+	def encode(self):
+		output = bytearray(b'')
+		count = 0
+		for item in self.fields["data"]:
+			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
+			output += hexPad(flVal,8)
+			count += 1
+		if count == 3:
+			output += struct.pack('<f', 1.0)
+		return output
 
 class AbstractValue(Atom):
 

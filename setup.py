@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='pytwig',
-      version='0.1.2',
+      version='0.1.3',
       description='Library for modifying and creating Bitwig files. (Not affiliated with Bitwig at all. Something something trademark of Bitwig GmbH etc.)',
       url='',
       author='jaxter184',
