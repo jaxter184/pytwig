@@ -293,29 +293,6 @@ class Atom:
 		self.fields = fields
 
 
-class Meta(Atom):
-
-	classname = 'meta'
-
-	def __init__(self, name, description = '', type = ''):
-		self.fields = OrderedDict([
-			('application_version_name', 'none'),
-			('branch', 'alex/future'),
-			('comment', ''),
-			('creator', 'Bitwig'),
-			('device_category', 'Control'),
-			('device_description', description),
-			('device_id', 'modulator:6146bcd7-f813-44c6-96e5-2e9d77093a81'),
-			('device_name', name),
-			('device_uuid', '6146bcd7-f813-44c6-96e5-2e9d77093a81'),
-			('is_polyphonic', False),
-			('revision_id', 'b3ddbde8410232c8105778921a53ff99045bd547'),
-			('revision_no', 51805),
-			('tags', ''),
-			('type', type)
-		])
-
-
 class Modulator(Atom):
 
 	classname = 'float_core.modulator_contents'
