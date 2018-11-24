@@ -2,11 +2,18 @@
 # Some content taken from stylemistake's Bitwig modulator stuff https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import util, atoms
-from src.lib.luts import typeLists
+from src.lib import util
+from src.lib.luts import typeLists, names
 import uuid
 import struct
+
 import json
+class MyEncoder(json.JSONEncoder):
+	def default(self, o):
+		try:
+			return o.toJSON()
+		except:
+			return o.__dict__
 
 BW_VERSION = '2.4'
 
@@ -24,16 +31,14 @@ BW_MODULATOR_META_TEMPLATE = [
 BW_PRESET_TEMPLATE = [
 	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
 
-class BW_File:
-	# header
-	# meta
-	# contents
 
-	def __init__(self):
-		print("this should not be initialized")
-		for each_field in BW_FILE_META_TEMPLATE:
-			if not each_field in self.meta.data:
-				self.meta.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+class BW_File:
+	header = None
+	meta = None
+	contents = None
+
+	def __init__(self, type = ''):
+		self.meta = BW_Meta(type)
 		self.meta.data['application_version_name'] = BW_VERSION
 
 	@staticmethod
@@ -55,8 +60,9 @@ class BW_File:
 		return self
 
 	def set_contents(self, value):
-		if not isintance(value, atoms.Atom):
-			raise TypeError('"' + m + '" is not a valid header')
+		from src.lib import atoms
+		if not isinstance(value, BW_Object):
+			raise TypeError('"' + str(value) + '" is not an atom')
 		else:
 			self.contents = value
 		return self
@@ -73,90 +79,212 @@ class BW_File:
 		self.contents.data['description'] = value
 		return self
 
-class BW_Meta(atoms.Atom):
+	def encode_to_json(self):
+		return self.meta.encode_to_json() + self.contents.encode_to_json()
+
+class Abstract_BW_Object:
+	def __init__(self):
+		print("please dont initialize me")
+
+# BW Objects are anything that can be in the device contents, including types and panels
+class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify type checking
+	classname = None
+	object_id = 0
+	data = {}
+
+	def __init__(self, classnum, fields = None,):
+		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+		'''for each_field in typeLists.class_type_list[classnum]:
+			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
+			self.data[fieldname] = typeLists.get_default(typeLists.field_type_list[each_field])
+		if not fields == None:
+			for each_field in fields:
+				if each_field in self.data:
+					self.data[each_field] = fields[each_field]'''
+		self.data["test"] = 1
+
+	def __str__(self):
+		return "Object: " + str(self.classname)
+
+	def setID(self, id):
+		self.object_id = id
+
+	# removed: def stringify(self, tabs = 0):
+
+	def listFields(self):
+		output = ''
+		output += "class : " + str(self.classname) + '\n'
+		for each_field in self.data:
+			output += each_field + '\n'
+		return output
+
+	def extractNum(self, text = None):
+		if text == None:
+			text = self.classname
+		if text[-1:] == ')':
+			start = len(text)-1
+			end = start
+			while text[start] != '(':
+				start-=1
+			return int(str(text[start+1:end]))
+		else:
+			return text
+
+	def encodeField(self, output, field):
+		value = self.data[field]
+		fieldNum = self.extractNum(field)
+		if value==None:
+			output += bytearray.fromhex('0a')
+			#print("none")
+		else:
+			#print(typeLists.fieldList[fieldNum])
+			#print(value)
+			if fieldNum in typeLists.field_type_list:
+				if typeLists.field_type_list[fieldNum] == 0x01:
+					if value <= 127 and value >= -128:
+						output += bytearray.fromhex('01')
+						if value < 0:
+							#print(hex(0xFF + value + 1)[2:])
+							output += bytearray.fromhex(hex(0xFF + value + 1)[2:])
+						else:
+							output += util.hexPad(value, 2)
+					elif value <= 32767 and value >= -32768:
+						output += bytearray.fromhex('02')
+						if value < 0:
+							#print(value)
+							#print(hex((value + (1 << 4)) % (1 << 4)))
+							output += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
+						else:
+							output += util.hexPad(value, 4)
+					elif value <= 2147483647 and value >= -2147483648:
+						output += bytearray.fromhex('03')
+						if value < 0:
+							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
+						else:
+							output += util.hexPad(value, 8)
+				elif typeLists.field_type_list[fieldNum] == 0x05:
+					output += bytearray.fromhex('05')
+					output += bytearray.fromhex('01' if value else '00')
+				elif typeLists.field_type_list[fieldNum] == 0x06:
+					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
+					output += bytearray.fromhex('06')
+					output += util.hexPad(flVal,8)
+				elif typeLists.field_type_list[fieldNum] == 0x07:
+					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
+					output += bytearray.fromhex('07')
+					output += util.hexPad(dbVal,16)
+				elif typeLists.field_type_list[fieldNum] == 0x08:
+					output += bytearray.fromhex('08')
+					value = value.replace('\\n', '\n')
+					try: value.encode("ascii")
+					except UnicodeEncodeError:
+						output += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
+						output.extend(value.encode('utf-16be'))
+					else:
+						output += util.hexPad(len(value), 8)
+						output.extend(value.encode('utf-8'))
+				elif typeLists.field_type_list[fieldNum] == 0x09:
+					if type(value) == Reference:
+						output += bytearray.fromhex('0b')
+						output += value.encode()
+					elif type(value) == Atom:
+						output += bytearray.fromhex('09')
+						output += value.encode()
+					elif type(value) == NoneType:
+						output += bytearray.fromhex('0a')
+				elif typeLists.field_type_list[fieldNum] == 0x12:
+					output += bytearray.fromhex('12')
+					for item in value:
+						if type(item) == Atom:
+							output += item.encode()
+						elif type(item) ==  Reference:
+							output += bytearray.fromhex('00000001')
+							output += item.encode()
+						else:
+							print("something went wrong in atoms.py: \'not object list\'")
+					output += bytearray.fromhex('00000003')
+				elif typeLists.field_type_list[fieldNum] == 0x14:
+					output += bytearray.fromhex('14')
+					if '' in value["type"]:
+						#print("empty string: this shouldnt happen in devices and presets")
+						pass
+					else:
+						output += bytearray.fromhex('01')
+						for key in value["data"]:
+							output += util.hexPad(len(key), 8)
+							output.extend(key.encode('utf-8'))
+							output += value["data"][key].encode()
+					output += bytearray.fromhex('00')
+				elif typeLists.field_type_list[fieldNum] == 0x15:
+					output += bytearray.fromhex('15')
+					placeholder = uuid.UUID(value)
+					output.extend(placeholder.bytes)
+				elif typeLists.field_type_list[fieldNum] == 0x16:
+					output += bytearray.fromhex('16')
+					output += value.encode()
+				elif typeLists.field_type_list[fieldNum] == 0x17:
+					output += bytearray.fromhex('17')
+					output += util.hexPad(len(value), 8)
+					for item in value:
+						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
+						output += util.hexPad(flVal,8)
+				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
+					output += bytearray.fromhex('19')
+					output += util.hexPad(len(value), 8)
+					for i in value:
+						i = i.replace('\\n', '\n')
+						output += util.hexPad(len(i), 8)
+						output.extend(i.encode('utf-8'))
+				else:
+					if typeLists.field_type_list[fieldNum] == None:
+						#print("atoms.py: 'None' in atom encoder. obj: " + str(fieldNum)) #temporarily disabling this error warning because i have no clue what any of these fields are
+						pass
+					else:
+						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
+			else:
+				print("missing type in typeLists.fieldList: " + str(fieldNum))
+		return output
+
+	def encode(self):
+		output = bytearray(b'')
+		if self.classname == 'meta':
+			output += bytearray.fromhex('00000004')
+			output += bytearray.fromhex('00000004')
+			output.extend('meta'.encode('utf-8'))
+			for each_field in self.data:
+				output += bytearray.fromhex('00000001')
+				output += util.hexPad(len(each_field), 8)
+				output.extend(data.encode('utf-8'))
+				output = self.encodeField(output, each_field)
+			output += bytearray.fromhex('00000000')
+		else:
+			output += util.hexPad(self.extractNum(),8)
+			for each_field in self.data:
+				output += util.hexPad(self.extractNum(each_field),8)
+				output = self.encodeField(output, each_field)
+			output += bytearray.fromhex('00000000')
+		return output
+
+	def encode_to_json(self):
+		return json.dumps(self, cls=MyEncoder,indent=2)
+
+class BW_Meta(BW_Object):
 
 	def __init__(self, type = ''):
 		self.classname = 'meta'
+		self.object_id = 1
 		# Default headers
-		if (type == ''):
-			self.data = BW_FILE_META_TEMPLATE
-		elif (type == 'application/bitwig-device'):
-			self.data = BW_DEVICE_META_TEMPLATE
+		'''for each_field in BW_FILE_META_TEMPLATE:
+			self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+		if (type == 'application/bitwig-device'):
+			for each_field in BW_DEVICE_META_TEMPLATE:
+				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
 		elif (type == 'application/bitwig-modulator'):
-			self.data = BW_MODULATOR_META_TEMPLATE
+			for each_field in BW_MODULATOR_META_TEMPLATE:
+				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
 		elif (type == 'application/bitwig-preset'):
-			self.data = BW_PRESET_META_TEMPLATE
+			for each_field in BW_PRESET_META_TEMPLATE:
+				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
 		else:
-			raise TypeError('Type "' + type + '" is an invalid application type')
-
-	def serialize(self):
-		return self.header + json.dumps(self.meta, indent = 2)
-
-class Device_Contents(atoms.Atom):
-
-	classname = 'float_core.device_contents(151)'
-
-	def __init__(self, name = '', description = '', type = '', tags = ''):
-		self.data = OrderedDict([
-			('settings(6194)', None),
-			('child_components(173)', []),
-			('panels(6213)', []),
-			('proxy_in_ports(177)', []),
-			('proxy_out_ports(178)', []),
-			('fft_order(6566)', 0),
-			('context_menu_panel(6834)', None),
-			("polyphony(179)", 1), # double quotes are things that arent in Modulator_Contents
-			("sleep_level_threshold(1977)", -96.0),
-			("sleep_level_timeout(1978)", 0.05),
-			('device_UUID(385)', '6146bcd7-f813-44c6-96e5-2e9d77093a81'),
-			('device_name(386)', name),
-			('description(2057)', description),
-			('creator(387)', 'Bitwig'),
-			('comment(388)', ''),
-			('keywords(389)', ''),
-			('category(390)', 'Control'),
-			("device_type(391)", 0),
-			("suggest_for_note_input(4846)", false),
-			("suggest_for_audio_input(4847)", true),
-			('has_been_modified', True),
-			("color_tint(6384)", 0),
-			("header_area_panel(6417)", null)
-		])
-
-	# component, panel, proxy_in, proxy_out
-	def add_atom_to_list(self, list_name, atom):
-		if not isinstance(atom, atoms.Atom):
-			raise TypeError("Object " + atom + " is not an atom")
-		if not list_name in self.data:
-			raise TypeError("List " + list_name + " does not exist in " + self.__str__())
-		if not isinstance(self.data[list_name], List): # TODO: check to make sure the list is an atom list using typeLists.field_type_list
-			raise TypeError(list_name + " is not a list of atoms")
-		self.data[list_name].append(atom)
-		return self
-
-class Modulator_Contents(atoms.Atom):
-
-	classname = 'float_core.modulator_contents'
-
-	def __init__(self, name, description = ''):
-		self.data = OrderedDict([
-			('settings', None),
-			('child_components', []),
-			('panels', []),
-			('proxy_in_ports', []),
-			('proxy_out_ports', []),
-			('fft_order', 0),
-			('context_menu_panel', None),
-			('device_UUID', '6146bcd7-f813-44c6-96e5-2e9d77093a81'),
-			('device_name', name),
-			('description', description),
-			('creator', 'Bitwig'),
-			('comment', ''),
-			('keywords', ''),
-			('category', 'Control'),
-			('has_been_modified', True),
-			('detail_panel', None),
-			('can_be_polyphonic', True),
-			('should_be_polyphonic_by_default', False),
-			('should_enable_perform_mode_by_default', False),
-		])
+			raise TypeError('Type "' + type + '" is an invalid application type')'''
+		self.data["test"] = 1

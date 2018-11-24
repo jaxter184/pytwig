@@ -1,4 +1,5 @@
-atom_class_names = {
+class_names = {
+	0:"DUMMY",
 	17:"float_core.desktop_settings",
 	40:"float_core.vu_meter_atom",
 	50:"float_core.proxy_out_port_component",
@@ -234,7 +235,7 @@ atom_class_names = {
 }
 
 
-atom_field_names = {
+field_names = {
 	14: 'managed_object_ID',
 	15: 'UUID',
 	16: 'user_name',

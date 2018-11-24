@@ -1,5 +1,5 @@
 
-from src.lib import atoms
+#from src.lib import atoms
 import uuid
 
 def get_default(integer):
@@ -12,13 +12,14 @@ def get_default(integer):
 	elif integer == 8:
 		return ''
 	elif integer == 9:
-		return atoms.Atom()
+		from src.lib import objects
+		return objects.BW_Object(0)
 	elif integer == 0x12:
 		return [] # atom list
 	elif integer == 0x14:
 		pass # mapping?
 	elif integer == 0x15:
-		return uuid.UUID(0).bytes
+		return uuid.UUID('00000000-0000-0000-0000-000000000000').bytes
 	elif integer == 0x16:
 		pass # ???
 	elif integer == 0x17:
@@ -27,6 +28,7 @@ def get_default(integer):
 		return []
 
 class_type_list = {
+0:[],
 17: [17, 18, 19],
 30: [561],
 36: [],
@@ -74,7 +76,7 @@ class_type_list = {
 215: [6194, 529, 530, 531, 532, 533, 2839, 2101, 2102, 2995, 3392, 2991, 3373, 3597, 5207],
 225: [509, 566, 568, 569],
 227: [576, 3021],
-228: [3814, 312, 4658, 1847, 3842, 3843, 3844, 3845, 3846, 3847, 1404, 1301, 1941, 4677, 1739, 5106, 4391, 6396, 4818, 4843, 5174, 6030]
+228: [3814, 312, 4658, 1847, 3842, 3843, 3844, 3845, 3846, 3847, 1404, 1301, 1941, 4677, 1739, 5106, 4391, 6396, 4818, 4843, 5174, 6030],
 236: [612, 614, 615],
 238: [687, 38, 4344, 6288],
 239: [6194, 607, 608, 374, 821, 823],
