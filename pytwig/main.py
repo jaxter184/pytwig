@@ -3,4 +3,6 @@ from src.lib.luts import typeLists
 
 # This script generates a blank device file
 if __name__ == "__main__":
+	test = objects.BW_File()
+
 	print("poop")

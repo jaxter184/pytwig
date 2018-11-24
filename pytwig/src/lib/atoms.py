@@ -46,7 +46,11 @@ def resetId(): # geez this feels so hacky -jaxter184
 	global id_count
 	id_count = 0
 
-class Atom:
+class Abstract_BW_Object:
+	def __init__(self):
+		print("please done initialize me")
+
+class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify type checking
 	# classname
 	# data
 	# classnum?
@@ -98,8 +102,8 @@ class Atom:
 		else:
 			#print(typeLists.fieldList[fieldNum])
 			#print(value)
-			if fieldNum in typeLists.fieldList:
-				if typeLists.fieldList[fieldNum] == 0x01:
+			if fieldNum in typeLists.field_type_list:
+				if typeLists.field_type_list[fieldNum] == 0x01:
 					if value <= 127 and value >= -128:
 						output += bytearray.fromhex('01')
 						if value < 0:
@@ -121,18 +125,18 @@ class Atom:
 							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
 						else:
 							output += util.hexPad(value, 8)
-				elif typeLists.fieldList[fieldNum] == 0x05:
+				elif typeLists.field_type_list[fieldNum] == 0x05:
 					output += bytearray.fromhex('05')
 					output += bytearray.fromhex('01' if value else '00')
-				elif typeLists.fieldList[fieldNum] == 0x06:
+				elif typeLists.field_type_list[fieldNum] == 0x06:
 					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
 					output += bytearray.fromhex('06')
 					output += util.hexPad(flVal,8)
-				elif typeLists.fieldList[fieldNum] == 0x07:
+				elif typeLists.field_type_list[fieldNum] == 0x07:
 					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
 					output += bytearray.fromhex('07')
 					output += util.hexPad(dbVal,16)
-				elif typeLists.fieldList[fieldNum] == 0x08:
+				elif typeLists.field_type_list[fieldNum] == 0x08:
 					output += bytearray.fromhex('08')
 					value = value.replace('\\n', '\n')
 					try: value.encode("ascii")
@@ -142,7 +146,7 @@ class Atom:
 					else:
 						output += util.hexPad(len(value), 8)
 						output.extend(value.encode('utf-8'))
-				elif typeLists.fieldList[fieldNum] == 0x09:
+				elif typeLists.field_type_list[fieldNum] == 0x09:
 					if type(value) == Reference:
 						output += bytearray.fromhex('0b')
 						output += value.encode()
@@ -151,7 +155,7 @@ class Atom:
 						output += value.encode()
 					elif type(value) == NoneType:
 						output += bytearray.fromhex('0a')
-				elif typeLists.fieldList[fieldNum] == 0x12:
+				elif typeLists.field_type_list[fieldNum] == 0x12:
 					output += bytearray.fromhex('12')
 					for item in value:
 						if type(item) == Atom:
@@ -160,9 +164,9 @@ class Atom:
 							output += bytearray.fromhex('00000001')
 							output += item.encode()
 						else:
-							print("something went wrong in atoms.py. \'not object list\'")
+							print("something went wrong in atoms.py: \'not object list\'")
 					output += bytearray.fromhex('00000003')
-				elif typeLists.fieldList[fieldNum] == 0x14:
+				elif typeLists.field_type_list[fieldNum] == 0x14:
 					output += bytearray.fromhex('14')
 					if '' in value["type"]:
 						#print("empty string: this shouldnt happen in devices and presets")
@@ -174,20 +178,20 @@ class Atom:
 							output.extend(key.encode('utf-8'))
 							output += value["data"][key].encode()
 					output += bytearray.fromhex('00')
-				elif typeLists.fieldList[fieldNum] == 0x15:
+				elif typeLists.field_type_list[fieldNum] == 0x15:
 					output += bytearray.fromhex('15')
 					placeholder = uuid.UUID(value)
 					output.extend(placeholder.bytes)
-				elif typeLists.fieldList[fieldNum] == 0x16:
+				elif typeLists.field_type_list[fieldNum] == 0x16:
 					output += bytearray.fromhex('16')
 					output += value.encode()
-				elif typeLists.fieldList[fieldNum] == 0x17:
+				elif typeLists.field_type_list[fieldNum] == 0x17:
 					output += bytearray.fromhex('17')
 					output += util.hexPad(len(value), 8)
 					for item in value:
 						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
 						output += util.hexPad(flVal,8)
-				elif typeLists.fieldList[fieldNum] == 0x19: #string array
+				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
 					output += bytearray.fromhex('19')
 					output += util.hexPad(len(value), 8)
 					for i in value:
@@ -195,7 +199,7 @@ class Atom:
 						output += util.hexPad(len(i), 8)
 						output.extend(i.encode('utf-8'))
 				else:
-					if typeLists.fieldList[fieldNum] == None:
+					if typeLists.field_type_list[fieldNum] == None:
 						#print("atoms.py: 'None' in atom encoder. obj: " + str(fieldNum)) #temporarily disabling this error warning because i have no clue what any of these fields are
 						pass
 					else:
@@ -224,17 +228,7 @@ class Atom:
 			output += bytearray.fromhex('00000000')
 		return output
 
-	def add_inport(self, atom):
-		self.data['settings'].add_connection(InportConnection(atom))
-		return self
-
-	def add_field(self, field, value): #need this to be able to add fields, making this a simpler format -jaxter184
-		self.data[field] = value
-
-	def set_fields(self, fields): #for replacing the entire set of fields. maybe unnecessary.
-		self.data = fields
-
-class Reference:
+class Reference(Abstract_BW_Object):
 	def __init__(self, id = 0):
 		self.id = id
 
@@ -252,7 +246,7 @@ class Reference:
 		output += util.hexPad(self.id,8)
 		return output
 
-class Color:
+class Color(Abstract_BW_Object):
 	def __init__(self, rd, gr, bl, al):
 		self.data = {'type': "color", 'data': [rd, gr, bl, al]}
 		if (al == 1.0):
@@ -269,6 +263,23 @@ class Color:
 			output += struct.pack('<f', 1.0)
 		return output
 
+class Atom(BW_Object):
+	# removed: def add_field(self, field, value): # wow I was dumb a year ago. This is totally unnecessary.
+
+	# component, panel, proxy_in, proxy_out
+	def add_atom_to_list(self, list_name, atom):
+		if not isinstance(atom, atoms.Atom):
+			raise TypeError("Object " + atom + " is not an atom")
+		if not list_name in self.data:
+			raise TypeError("List " + list_name + " does not exist in " + self.__str__())
+		if not isinstance(self.data[list_name], List): # TODO: check to make sure the list is an atom list using typeLists.field_type_list
+			raise TypeError(list_name + " is not a list of atoms")
+		self.data[list_name].append(atom)
+		return self
+
+	def serialize(self):
+		return json.dumps(self.data, indent = 2)
+
 class AbstractValue(Atom):
 
    def __init__(self, name, default = None, tooltip = '', label = ''):
@@ -284,7 +295,6 @@ class AbstractValue(Atom):
          ('value_type', None),
          ('value', default)
       ])
-
 
 class DecimalValue(AbstractValue):
 
@@ -327,7 +337,6 @@ class DecimalValue(AbstractValue):
    def set_step(self, step):
       self.data['value_type'].data['pixel_step_size'] = step
       return self
-
 
 class IndexedValue(AbstractValue):
 
@@ -373,9 +382,9 @@ class Settings(Atom):
          ('is_polyphonic', True)
       ])
 
-   def add_connection(self, atom):
-      self.data['inport_connections'].append(atom)
-      return self
+  def add_inport_connection(self, atom):
+	  self.add_atom_to_list('inport_connection', InportConnection(atom))
+	  return self
 
 
 class InportConnection(Atom):

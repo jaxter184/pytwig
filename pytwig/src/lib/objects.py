@@ -10,115 +10,93 @@ import json
 
 BW_VERSION = '2.4'
 
+BW_FILE_META_TEMPLATE = [
+	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name', 'revision_id', 'revision_no', 'tags', 'type',]
+
+BW_DEVICE_META_TEMPLATE = [
+	'device_description', 'device_type', 'device_uuid',
+	# TODO: find out what these do
+	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output', 'suggest_for_audio_input', 'suggest_for_note_input',]
+
+BW_MODULATOR_META_TEMPLATE = [
+	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
+
+BW_PRESET_TEMPLATE = [
+	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
+
 class BW_File:
 	# header
 	# meta
 	# contents
 
 	def __init__(self):
-		print("this class should not be initialized")
+		print("this should not be initialized")
+		for each_field in BW_FILE_META_TEMPLATE:
+			if not each_field in self.meta.data:
+				self.meta.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+		self.meta.data['application_version_name'] = BW_VERSION
 
-    @staticmethod
-	def read():
-		print("TODO: read files")
+	@staticmethod
+	def read(text_data): # TODO: Fix this
+		if text_data[:4] == 'BtWg' and text_data[4:40].isdigit():
+			# Interpreted header
+			if not (text_data[:4] == 'BtWg' and text_data[4:40].isdigit()):
+				raise TypeError('"' + text_data[:40] + '" is not a valid header')
+		# Interpreted header
+
+	def __str__(self):
+		return "File: " +  self.meta.data['device_name']
+
+	def set_header(self, value):
+		if not (value[:4] == 'BtWg' and value[4:].isdigit() and len(value) == 40):
+			raise TypeError('"' + value + '" is not a valid header')
+		else:
+			self.header = value
+		return self
+
+	def set_contents(self, value):
+		if not isintance(value, atoms.Atom):
+			raise TypeError('"' + m + '" is not a valid header')
+		else:
+			self.contents = value
+		return self
+
+
+	def set_uuid(self, value):
+		self.contents.data['device_UUID'] = value
+		self.meta.data['device_uuid'] = value
+		self.meta.data['device_id'] = 'modulator:' + value
+		return self
+
+	def set_description(self, value):
+		self.meta.data['device_description'] = value
+		self.contents.data['description'] = value
+		return self
 
 class BW_Meta(atoms.Atom):
 
-	def __init__(self, name = '', type = '', uuid = '41be8f3a-6d24-4442-9508-8548dbe62d47'):
+	def __init__(self, type = ''):
 		self.classname = 'meta'
 		# Default headers
-		if (type == 'application/bitwig-device'):
-			self.data = OrderedDict([
-				('application_version_name', BW_VERSION),
-				('branch', 'releases'),
-				('comment', ''),
-				('creator', 'Bitwig'), # If it works), change this to 'Unknown'
-				('device_category', 'Unknown'),
-				('device_description' , ''),
-				('device_id' , uuid),
-				('device_name' , primary),
-				('revision_id' , '4eab62ea750680f05a8515dd06615fa3efab6c0f'), # Find out what this can be
-				('revision_no' , 53807), # Find out what this can be
-				('tags' , ''),
-				('type' , 'application/bitwig-device'),
-
-				('device_type' , 'audio_to_audio'), # If it works), change this to ''
-				('device_uuid' , uuid),
-
-				(# TODO: find out what these do
-				('has_audio_input' , False),
-				('has_audio_output' , False),
-				('has_note_input' , False),
-				('has_note_output' , False),
-				('suggest_for_audio_input' , True),
-				('suggest_for_note_input' , True),
-			])
+		if (type == ''):
+			self.data = BW_FILE_META_TEMPLATE
+		elif (type == 'application/bitwig-device'):
+			self.data = BW_DEVICE_META_TEMPLATE
 		elif (type == 'application/bitwig-modulator'):
-			self.data = OrderedDict([
-				('application_version_name', BW_VERSION),
-				('branch', 'releases'),
-				('comment', ''),
-				('creator', 'Bitwig'), # If it works, change this to 'Unknown'
-				('device_category', 'Unknown'),
-				('device_id' , 'modulator,' + uuid),
-				('device_name' , primary),
-				('revision_id' , '70ff9163e17adee5a5bec0966115c2d1db31d9d3'),
-				('revision_no' , 69110),
-				('tags' , ''),
-				('type' , 'application/bitwig-modulator'),
-
-				('device_description' , ''),
-				('device_uuid' , uuid),
-				('is_polyphonic' , False),
-			])
+			self.data = BW_MODULATOR_META_TEMPLATE
 		elif (type == 'application/bitwig-preset'):
-			self.data = OrderedDict([
-				('application_version_name', BW_VERSION),
-				('branch', 'releases'),
-				('comment', ''),
-				('creator', 'Bitwig'), # If it works, change this to 'Unknown'
-				('device_category', 'Unknown'),
-				('device_id' , uuid),
-				('device_name' , primary),
-				('revision_id' , '7e2a6b1f43653ded07446c597894d45b0c562940'),
-				('revision_no' , 43068),
-				('tags' , ''),
-				('type' , 'application/bitwig-preset'),
-
-				('device_creator' , ''),
-				('device_type' , ''),
-				('preset_category' , 'Unknown'),
-				('referenced_device_ids' , []),
-				('referenced_packaged_file_ids' , []),
-			])
+			self.data = BW_PRESET_META_TEMPLATE
 		else:
-			raise TypeError('Type "' + type + '" is an invalid header type')
-
-    @staticmethod
-	def read_header(self, text_data):
-		if primary[:4] == 'BtWg' and primary[4:40].isdigit():
-			# Interpreted header
-			if not (primary[:4] == 'BtWg' and primary[4:40].isdigit()):
-				raise TypeError('Text data ' + primary[:40] + ' is not a valid header')
-		# Interpreted header
+			raise TypeError('Type "' + type + '" is an invalid application type')
 
 	def serialize(self):
-		return self.header + json.dumps(self.meta, indent = 2) + json.dumps(self.data, indent = 2)
-
-class BW_Device(BW_File):
-
-	def __init__(self, name, description = '', type = '', tags = ''):
-		self.meta = Meta(name, description, type = 'application/bitwig-device');
-		self.contents = Device_Contents(name, description, type = 'application/bitwig-device');
-
-	def __str__(self):
-		return "Device: " +  self.meta.data['device_name']
+		return self.header + json.dumps(self.meta, indent = 2)
 
 class Device_Contents(atoms.Atom):
 
-	self.classname = 'float_core.device_contents(151)'
+	classname = 'float_core.device_contents(151)'
 
-	def __init__(self, name, description = '', type = '', tags = ''):
+	def __init__(self, name = '', description = '', type = '', tags = ''):
 		self.data = OrderedDict([
 			('settings(6194)', None),
 			('child_components(173)', []),
@@ -145,26 +123,18 @@ class Device_Contents(atoms.Atom):
 			("header_area_panel(6417)", null)
 		])
 
-class BW_Modulator(BW_File):
-	def __init__(self, name, description = 'Custom modulator'):
-		self.meta = Meta(name, description, type='application/bitwig-modulator')
-		self.contents = Modulator_Contents(name, description);
-		self.header = header
-		self.meta.set_uuid(util.uuid_from_text(name))
-		self.contents.set_uuid(util.uuid_from_text(name))
-
-	def set_uuid(self, value):
-		self.contents.data['device_UUID'] = value
-		self.meta.data['device_uuid'] = value
-		self.meta.data['device_id'] = 'modulator:' + value
+	# component, panel, proxy_in, proxy_out
+	def add_atom_to_list(self, list_name, atom):
+		if not isinstance(atom, atoms.Atom):
+			raise TypeError("Object " + atom + " is not an atom")
+		if not list_name in self.data:
+			raise TypeError("List " + list_name + " does not exist in " + self.__str__())
+		if not isinstance(self.data[list_name], List): # TODO: check to make sure the list is an atom list using typeLists.field_type_list
+			raise TypeError(list_name + " is not a list of atoms")
+		self.data[list_name].append(atom)
 		return self
 
-	def set_description(self, value):
-		self.meta.data['device_description'] = value
-		self.contents.data['description'] = value
-		return self
-
-class Modulator_Contents:
+class Modulator_Contents(atoms.Atom):
 
 	classname = 'float_core.modulator_contents'
 
@@ -188,29 +158,5 @@ class Modulator_Contents:
 			('detail_panel', None),
 			('can_be_polyphonic', True),
 			('should_be_polyphonic_by_default', False),
-			('should_enable_perform_mode_by_default', False)
+			('should_enable_perform_mode_by_default', False),
 		])
-
-	def add_component(self, atom):
-		self.data['child_components'].append(atom)
-		return self
-
-	def add_panel(self, atom):
-		self.data['panels'].append(atom)
-		return self
-
-	def add_proxy_in(self, atom): #should be consolidated with "add_component"
-		self.data['proxy_in_ports'].append(atom)
-		return self
-
-	def add_proxy_out(self, atom): #should be consolidated with "add_component"
-		self.data['proxy_out_ports'].append(atom)
-		return self
-
-
-	def serialize(self):
-		return util.serialize_bitwig_device(OrderedDict([
-			('header', self.header),
-			('meta', serialize(self.meta)),
-			('contents', serialize(self))
-		]))
