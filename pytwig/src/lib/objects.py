@@ -7,23 +7,27 @@ from src.lib.luts import typeLists, names
 import uuid
 import struct
 
+g_object_id = 0
 import json
 class MyEncoder(json.JSONEncoder):
 	def default(self, o):
-		try:
-			return o.toJSON()
-		except:
-			return o.__dict__
+		global g_object_id
+		if isinstance(o, BW_Object):
+			g_object_id += 1
+			return OrderedDict([("classname",o.classname), ("object_id",g_object_id), ("data",o.data)])
+		return o.__dict__
 
 BW_VERSION = '2.4'
 
 BW_FILE_META_TEMPLATE = [
-	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name', 'revision_id', 'revision_no', 'tags', 'type',]
+	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
+	'revision_id', 'revision_no', 'tags', 'type',]
 
 BW_DEVICE_META_TEMPLATE = [
 	'device_description', 'device_type', 'device_uuid',
 	# TODO: find out what these do
-	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output', 'suggest_for_audio_input', 'suggest_for_note_input',]
+	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output',
+	'suggest_for_audio_input', 'suggest_for_note_input',]
 
 BW_MODULATOR_META_TEMPLATE = [
 	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
@@ -33,13 +37,12 @@ BW_PRESET_TEMPLATE = [
 
 
 class BW_File:
-	header = None
-	meta = None
-	contents = None
 
 	def __init__(self, type = ''):
+		self.header = 'BtWgXXXXX'
 		self.meta = BW_Meta(type)
 		self.meta.data['application_version_name'] = BW_VERSION
+		self.contents = None
 
 	@staticmethod
 	def read(text_data): # TODO: Fix this
@@ -80,7 +83,14 @@ class BW_File:
 		return self
 
 	def encode_to_json(self):
-		return self.meta.encode_to_json() + self.contents.encode_to_json()
+		global g_object_id
+		output = self.header
+		g_object_id = 0
+		output += self.meta.encode_to_json()
+		output += '\n'
+		g_object_id = 0
+		output += self.contents.encode_to_json()
+		return output
 
 class Abstract_BW_Object:
 	def __init__(self):
@@ -88,20 +98,18 @@ class Abstract_BW_Object:
 
 # BW Objects are anything that can be in the device contents, including types and panels
 class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify type checking
-	classname = None
-	object_id = 0
-	data = {}
 
 	def __init__(self, classnum, fields = None,):
 		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
-		'''for each_field in typeLists.class_type_list[classnum]:
+		self.object_id = 0
+		self.data = OrderedDict()
+		for each_field in typeLists.class_type_list[classnum]:
 			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
 			self.data[fieldname] = typeLists.get_default(typeLists.field_type_list[each_field])
 		if not fields == None:
 			for each_field in fields:
 				if each_field in self.data:
-					self.data[each_field] = fields[each_field]'''
-		self.data["test"] = 1
+					self.data[each_field] = fields[each_field]
 
 	def __str__(self):
 		return "Object: " + str(self.classname)
@@ -273,8 +281,9 @@ class BW_Meta(BW_Object):
 	def __init__(self, type = ''):
 		self.classname = 'meta'
 		self.object_id = 1
+		self.data = OrderedDict()
 		# Default headers
-		'''for each_field in BW_FILE_META_TEMPLATE:
+		for each_field in BW_FILE_META_TEMPLATE:
 			self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
 		if (type == 'application/bitwig-device'):
 			for each_field in BW_DEVICE_META_TEMPLATE:
@@ -286,5 +295,4 @@ class BW_Meta(BW_Object):
 			for each_field in BW_PRESET_META_TEMPLATE:
 				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
 		else:
-			raise TypeError('Type "' + type + '" is an invalid application type')'''
-		self.data["test"] = 1
+			raise TypeError('Type "' + type + '" is an invalid application type')
