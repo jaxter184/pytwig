@@ -2,7 +2,8 @@
 #from src.lib import atoms
 import uuid
 
-def get_default(integer):
+def get_default(classnum):
+	integer = field_type_list[classnum]
 	if integer == 1:
 		return 0
 	elif integer == 5:
@@ -13,7 +14,11 @@ def get_default(integer):
 		return ''
 	elif integer == 9:
 		from src.lib import objects
-		return objects.BW_Object(0)
+		from src.lib.luts import fieldAtoms
+		if classnum in fieldAtoms.special:
+			return objects.BW_Object(fieldAtoms.special[classnum])
+		else:
+			return None
 	elif integer == 0x12:
 		return [] # atom list
 	elif integer == 0x14:
@@ -21,9 +26,10 @@ def get_default(integer):
 	elif integer == 0x15:
 		return uuid.UUID('00000000-0000-0000-0000-000000000000').bytes
 	elif integer == 0x16:
-		pass # ???
+		from src.lib import objects
+		return objects.Color(0,0,0,1)
 	elif integer == 0x17:
-		pass # color
+		pass #float list
 	elif integer == 0x19: #string array
 		return []
 

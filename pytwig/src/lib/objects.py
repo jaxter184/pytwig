@@ -15,6 +15,8 @@ class MyEncoder(json.JSONEncoder):
 		if isinstance(o, BW_Object):
 			g_object_id += 1
 			return OrderedDict([("classname",o.classname), ("object_id",g_object_id), ("data",o.data)])
+		elif isinstance(o, bytes):
+			return "TODO: replace with UUID interpreter"
 		return o.__dict__
 
 BW_VERSION = '2.4'
@@ -96,6 +98,41 @@ class Abstract_BW_Object:
 	def __init__(self):
 		print("please dont initialize me")
 
+class Reference(Abstract_BW_Object):
+	def __init__(self, id = 0):
+		self.id = id
+
+	def __str__(self):
+		return "<Reference: " + str(self.id) + '>'
+
+	def setID(self, id):
+		self.id = id
+
+	def serialize(self):
+		return {'object_ref': self.id}
+
+	def encode(self):
+		output = bytearray(b'')
+		output += util.hexPad(self.id,8)
+		return output
+
+class Color(Abstract_BW_Object):
+	def __init__(self, rd, gr, bl, al):
+		self.data = {'type': "color", 'data': [rd, gr, bl, al]}
+		if (al == 1.0):
+			self.data['data'] = self.data['data'][:-1]
+
+	def encode(self):
+		output = bytearray(b'')
+		count = 0
+		for item in self.data["data"]:
+			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
+			output += util.hexPad(flVal,8)
+			count += 1
+		if count == 3:
+			output += struct.pack('<f', 1.0)
+		return output
+
 # BW Objects are anything that can be in the device contents, including types and panels
 class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify type checking
 
@@ -105,7 +142,7 @@ class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify typ
 		self.data = OrderedDict()
 		for each_field in typeLists.class_type_list[classnum]:
 			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-			self.data[fieldname] = typeLists.get_default(typeLists.field_type_list[each_field])
+			self.data[fieldname] = typeLists.get_default(each_field)
 		if not fields == None:
 			for each_field in fields:
 				if each_field in self.data:
@@ -284,15 +321,15 @@ class BW_Meta(BW_Object):
 		self.data = OrderedDict()
 		# Default headers
 		for each_field in BW_FILE_META_TEMPLATE:
-			self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+			self.data[each_field] = typeLists.get_default(each_field)
 		if (type == 'application/bitwig-device'):
 			for each_field in BW_DEVICE_META_TEMPLATE:
-				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+				self.data[each_field] = typeLists.get_default(each_field)
 		elif (type == 'application/bitwig-modulator'):
 			for each_field in BW_MODULATOR_META_TEMPLATE:
-				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+				self.data[each_field] = typeLists.get_default(each_field)
 		elif (type == 'application/bitwig-preset'):
 			for each_field in BW_PRESET_META_TEMPLATE:
-				self.data[each_field] = typeLists.get_default(typeLists.field_type_list[each_field])
+				self.data[each_field] = typeLists.get_default(each_field)
 		else:
 			raise TypeError('Type "' + type + '" is an invalid application type')

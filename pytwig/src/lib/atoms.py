@@ -9,7 +9,7 @@ import struct
 
 id_count = 0
 ## Serializes all device atoms
-
+"""
 def serialize(obj, state = None): # should this go somewhere else?
 	if state == None:
 		state = []
@@ -45,41 +45,7 @@ def serialize(obj, state = None): # should this go somewhere else?
 def resetId(): # geez this feels so hacky -jaxter184
 	global id_count
 	id_count = 0
-
-class Reference(objects.Abstract_BW_Object):
-	def __init__(self, id = 0):
-		self.id = id
-
-	def __str__(self):
-		return "<Reference: " + str(self.id) + '>'
-
-	def setID(self, id):
-		self.id = id
-
-	def serialize(self):
-		return {'object_ref': self.id}
-
-	def encode(self):
-		output = bytearray(b'')
-		output += util.hexPad(self.id,8)
-		return output
-
-class Color(objects.Abstract_BW_Object):
-	def __init__(self, rd, gr, bl, al):
-		self.data = {'type': "color", 'data': [rd, gr, bl, al]}
-		if (al == 1.0):
-			self.data['data'] = self.data['data'][:-1]
-
-	def encode(self):
-		output = bytearray(b'')
-		count = 0
-		for item in self.data["data"]:
-			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
-			output += util.hexPad(flVal,8)
-			count += 1
-		if count == 3:
-			output += struct.pack('<f', 1.0)
-		return output
+"""
 
 class Atom(objects.BW_Object):
 	# removed: def add_field(self, field, value): # wow I was dumb a year ago. This is totally unnecessary.

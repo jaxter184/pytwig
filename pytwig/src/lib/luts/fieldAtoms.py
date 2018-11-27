@@ -1,4 +1,4 @@
-fa = {#maps fields to their objects
+special = {#maps fields to their objects
 	248:-1,
 	612:17,
 	6194:236,
