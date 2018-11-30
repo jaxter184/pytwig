@@ -75,7 +75,6 @@ class BW_File:
 		return self
 
 	def set_contents(self, value):
-		from src.lib import atoms
 		if not isinstance(value, BW_Object):
 			raise TypeError('"' + str(value) + '" is not an atom')
 		else:
@@ -97,9 +96,18 @@ class BW_File:
 		global g_object_id
 		g_object_id = 0
 		output = self.header
-		output += self.meta.encode_to_json()
+		output += self.meta.serialize()
 		output += '\n'
-		output += self.contents.encode_to_json()
+		output += self.contents.serialize()
+		return output
+
+	def encode(self):
+		global g_object_id
+		g_object_id = 0
+		output = bytearray(self.header, "utf-8")
+		output += self.meta.encode()
+		output += bytearray('\n', "utf-8")
+		output += self.contents.encode()
 		return output
 
 class Abstract_Serializable_BW_Object:
@@ -123,13 +131,13 @@ class Abstract_Serializable_BW_Object:
 
 	def encodeField(self, output, field):
 		value = self.data[field]
-		fieldNum = self.extractNum(field)
+		fieldNum = util.extract_num(field)
 		if value==None:
 			output += bytearray.fromhex('0a')
 			#print("none")
 		else:
 			#print(typeLists.fieldList[fieldNum])
-			#print(value)
+			#print(fieldNum)
 			if fieldNum in typeLists.field_type_list:
 				if typeLists.field_type_list[fieldNum] == 0x01:
 					if value <= 127 and value >= -128:
@@ -175,20 +183,20 @@ class Abstract_Serializable_BW_Object:
 						output += util.hexPad(len(value), 8)
 						output.extend(value.encode('utf-8'))
 				elif typeLists.field_type_list[fieldNum] == 0x09:
-					if type(value) == Reference:
+					if isinstance(value, Reference):
 						output += bytearray.fromhex('0b')
 						output += value.encode()
-					elif type(value) == Atom:
+					elif isinstance(value, BW_Object):
 						output += bytearray.fromhex('09')
 						output += value.encode()
-					elif type(value) == NoneType:
+					elif isinstance(value, NoneType):
 						output += bytearray.fromhex('0a')
 				elif typeLists.field_type_list[fieldNum] == 0x12:
 					output += bytearray.fromhex('12')
 					for item in value:
-						if type(item) == Atom:
+						if isinstance(item, BW_Object):
 							output += item.encode()
-						elif type(item) ==  Reference:
+						elif isinstance(item, Reference):
 							output += bytearray.fromhex('00000001')
 							output += item.encode()
 						else:
@@ -236,8 +244,19 @@ class Abstract_Serializable_BW_Object:
 				print("missing type in typeLists.fieldList: " + str(fieldNum))
 		return output
 
-	def encode_to_json(self):
+	def serialize(self):
 		return json.dumps(self, cls=MyEncoder,indent=2)
+
+
+	def encode(self):
+		output = bytearray(b'')
+		output += util.hexPad(self.classnum,8)
+		for each_field in self.data:
+			output += util.hexPad(util.extract_num(each_field),8)
+			output = self.encodeField(output, each_field)
+		output += bytearray.fromhex('00000000')
+		return output
+
 
 class Reference(Abstract_Serializable_BW_Object):
 	def __init__(self, id = 0):
@@ -250,9 +269,6 @@ class Reference(Abstract_Serializable_BW_Object):
 
 	def __str__(self):
 		return "Reference: " + str(self.object_ref)
-
-	def setID(self, id):
-		self.object_ref = id
 
 	def serialize(self):
 		return {'object_ref': self.object_ref}
@@ -275,7 +291,7 @@ class Color(Abstract_Serializable_BW_Object):
 	def encode(self):
 		output = bytearray(b'')
 		count = 0
-		for item in self.data["data"]:
+		for item in self.data:
 			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
 			output += util.hexPad(flVal,8)
 			count += 1
@@ -304,9 +320,6 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 	def __str__(self):
 		return "Object: " + str(self.classname)
 
-	def setID(self, id):
-		self.object_id = id
-
 	# removed: def stringify(self, tabs = 0):
 
 	def listFields(self):
@@ -315,39 +328,6 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 		for each_field in self.data:
 			output += each_field + '\n'
 		return output
-
-	def extractNum(self, text = None):
-		if text == None:
-			text = self.classname
-		if text[-1:] == ')':
-			start = len(text)-1
-			end = start
-			while text[start] != '(':
-				start-=1
-			return int(str(text[start+1:end]))
-		else:
-			return text
-
-	def encode(self):
-		output = bytearray(b'')
-		if self.classname == 'meta':
-			output += bytearray.fromhex('00000004')
-			output += bytearray.fromhex('00000004')
-			output.extend('meta'.encode('utf-8'))
-			for each_field in self.data:
-				output += bytearray.fromhex('00000001')
-				output += util.hexPad(len(each_field), 8)
-				output.extend(data.encode('utf-8'))
-				output = self.encodeField(output, each_field)
-			output += bytearray.fromhex('00000000')
-		else:
-			output += util.hexPad(self.extractNum(),8)
-			for each_field in self.data:
-				output += util.hexPad(self.extractNum(each_field),8)
-				output = self.encodeField(output, each_field)
-			output += bytearray.fromhex('00000000')
-		return output
-
 
 class BW_Meta(Abstract_Serializable_BW_Object):
 
@@ -371,3 +351,17 @@ class BW_Meta(Abstract_Serializable_BW_Object):
 				self.data[each_field] = typeLists.get_default(each_field)
 		else:
 			raise TypeError('Type "' + type + '" is an invalid application type')
+
+
+	def encode(self):
+		output = bytearray(b'')
+		output += bytearray.fromhex('00000004')
+		output += bytearray.fromhex('00000004')
+		output.extend('meta'.encode('utf-8'))
+		for each_field in self.data:
+			output += bytearray.fromhex('00000001')
+			output += util.hexPad(len(each_field), 8)
+			output.extend(each_field.encode('utf-8'))
+			output = self.encodeField(output, each_field)
+		output += bytearray.fromhex('00000000')
+		return output

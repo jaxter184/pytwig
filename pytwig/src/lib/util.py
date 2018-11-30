@@ -52,7 +52,6 @@ def uuid_from_text(text):
 
 # removed: def serialize_bitwig_device(device):
 
-
 # Adds leading 0s to a hex value
 def hexPad(data, pad = 8):
 	if isinstance(data, bytearray):
@@ -63,3 +62,14 @@ def hexPad(data, pad = 8):
 	else:
 		print("jerror: incorrect input for pad prepend")
 		return data
+
+# Gets the classnum or fieldnum from a string
+def extract_num(name):
+	#print(name.replace(')', '').split('('))
+	name = name.replace(')', '(').split('(')
+	for i in range(len(name)):
+		try :
+			return int(name[-i - 1])
+		except:
+			pass
+	return name[0]
