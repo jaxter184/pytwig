@@ -46,7 +46,7 @@ BW_MODULATOR_META_TEMPLATE = [
 BW_PRESET_TEMPLATE = [
 	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
 
-
+# TODO: split into another file. There is already a bwfile file.
 class BW_File:
 
 	def __init__(self, type = ''):

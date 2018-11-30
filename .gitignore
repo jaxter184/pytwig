@@ -1,14 +1,15 @@
 # Compiled python modules.
 *.pyc
+__pycache__/
 
 # Setuptools distribution folder.
 /dist/
 /output/
+/hidden/
 
 # Python egg metadata, regenerated from source files by setuptools.
 /*.egg-info
 
-test.py
-input/
+# test.py
+/input/
 *.bw
-

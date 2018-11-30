@@ -11,5 +11,3 @@ setup(name='pytwig',
       zip_safe=False)
 
 # python setup.py sdist upload
-
-# so far, this library is designed to only accommodate the default Bitwig bytecode files rather than the JSON-style files
