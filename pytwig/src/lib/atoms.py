@@ -61,6 +61,32 @@ class Atom(objects.BW_Object):
 		self.data[list_name].append(atom)
 		return self
 
+	def create_inport(self, classnum, quality = False):
+		if isinstance(classnum, int):
+			try:
+				self.get(6194).get(614).append(Atom(105))
+				self.get(6194).get(614)[-1].set(248, Atom(classnum))
+				if quality:
+					self.get(6194).get(614)[-1].set(1943, True)
+				return self.get(6194).get(614)[-1].get(248)
+			except:
+				raise KeyError("There was an issue adding an inport. Perhaps this isn't an atom?")
+		elif isinstance(classnum, objects.Reference):
+			self.get(6194).get(614).append(Atom(105))
+			self.get(6194).get(614)[-1].set(248, classnum)
+			if quality:
+				self.get(6194).get(614)[-1].set(1943, True)
+			return self.get(6194).get(614)[-1].get(248)
+		elif isinstance(classnum, atoms.Atom):
+			self.get(6194).get(614).append(Atom(105))
+			self.get(6194).get(614)[-1].set(248, classnum)
+			if quality:
+				self.get(6194).get(614)[-1].set(1943, True)
+			return self.get(6194).get(614)[-1].get(248)
+		else:
+			raise TypeError("Not a valid inport type")
+
+
 	def serialize(self):
 		return json.dumps(self.data, indent = 2)
 

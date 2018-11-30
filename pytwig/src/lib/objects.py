@@ -8,25 +8,34 @@ import uuid
 import struct
 
 g_object_id = 0
+g_unique_object_id = 10000
+obj_id_hash = {}
 import json
 class MyEncoder(json.JSONEncoder):
 	def default(self, o):
 		global g_object_id
 		if isinstance(o, BW_Object):
+			obj_id_hash[o.object_id] = g_object_id
 			g_object_id += 1
-			return OrderedDict([("classname",o.classname), ("object_id",g_object_id), ("data",o.data)])
+			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
+		elif isinstance(o, BW_Meta):
+			obj_id_hash[o.object_id] = g_object_id
+			g_object_id += 1
+			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
+		elif isinstance(o, Reference):
+			return OrderedDict([("object_ref",obj_id_hash[o.object_ref])])
 		elif isinstance(o, bytes):
 			return "TODO: replace with UUID interpreter"
 		return o.__dict__
 
-BW_VERSION = '2.4'
+BW_VERSION = '2.4.2'
 
 BW_FILE_META_TEMPLATE = [
 	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
 	'revision_id', 'revision_no', 'tags', 'type',]
 
 BW_DEVICE_META_TEMPLATE = [
-	'device_description', 'device_type', 'device_uuid',
+	'additional_device_types', 'device_description', 'device_type', 'device_uuid',
 	# TODO: find out what these do
 	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output',
 	'suggest_for_audio_input', 'suggest_for_note_input',]
@@ -44,6 +53,7 @@ class BW_File:
 		self.header = 'BtWgXXXXX'
 		self.meta = BW_Meta(type)
 		self.meta.data['application_version_name'] = BW_VERSION
+		self.meta.data = OrderedDict(sorted(self.meta.data.items(), key=lambda t: t[0])) # Sorts the dict. CLEAN: maybe put this somewhere else?
 		self.contents = None
 
 	@staticmethod
@@ -72,11 +82,10 @@ class BW_File:
 			self.contents = value
 		return self
 
-
 	def set_uuid(self, value):
 		self.contents.data['device_UUID'] = value
 		self.meta.data['device_uuid'] = value
-		self.meta.data['device_id'] = 'modulator:' + value
+		self.meta.data['device_id'] = value
 		return self
 
 	def set_description(self, value):
@@ -84,96 +93,33 @@ class BW_File:
 		self.contents.data['description'] = value
 		return self
 
-	def encode_to_json(self):
+	def serialize(self):
 		global g_object_id
-		output = self.header
 		g_object_id = 0
+		output = self.header
 		output += self.meta.encode_to_json()
 		output += '\n'
-		g_object_id = 0
 		output += self.contents.encode_to_json()
 		return output
 
-class Abstract_BW_Object:
+class Abstract_Serializable_BW_Object:
 	def __init__(self):
 		print("please dont initialize me")
 
-class Reference(Abstract_BW_Object):
-	def __init__(self, id = 0):
-		self.id = id
+	def set(self, key, val):
+		if isinstance(key, int):
+			#if not key in names.field_names # KeyError detection is automatic
+			key = names.field_names[key] + '(' + str(key) + ')'
+		#if not key in self.data # KeyError detection is automatic
+		self.data[key] = val
+		return self
 
-	def __str__(self):
-		return "<Reference: " + str(self.id) + '>'
-
-	def setID(self, id):
-		self.id = id
-
-	def serialize(self):
-		return {'object_ref': self.id}
-
-	def encode(self):
-		output = bytearray(b'')
-		output += util.hexPad(self.id,8)
-		return output
-
-class Color(Abstract_BW_Object):
-	def __init__(self, rd, gr, bl, al):
-		self.data = {'type': "color", 'data': [rd, gr, bl, al]}
-		if (al == 1.0):
-			self.data['data'] = self.data['data'][:-1]
-
-	def encode(self):
-		output = bytearray(b'')
-		count = 0
-		for item in self.data["data"]:
-			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
-			output += util.hexPad(flVal,8)
-			count += 1
-		if count == 3:
-			output += struct.pack('<f', 1.0)
-		return output
-
-# BW Objects are anything that can be in the device contents, including types and panels
-class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify type checking
-
-	def __init__(self, classnum, fields = None,):
-		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
-		self.object_id = 0
-		self.data = OrderedDict()
-		for each_field in typeLists.class_type_list[classnum]:
-			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-			self.data[fieldname] = typeLists.get_default(each_field)
-		if not fields == None:
-			for each_field in fields:
-				if each_field in self.data:
-					self.data[each_field] = fields[each_field]
-
-	def __str__(self):
-		return "Object: " + str(self.classname)
-
-	def setID(self, id):
-		self.object_id = id
-
-	# removed: def stringify(self, tabs = 0):
-
-	def listFields(self):
-		output = ''
-		output += "class : " + str(self.classname) + '\n'
-		for each_field in self.data:
-			output += each_field + '\n'
-		return output
-
-	def extractNum(self, text = None):
-		if text == None:
-			text = self.classname
-		if text[-1:] == ')':
-			start = len(text)-1
-			end = start
-			while text[start] != '(':
-				start-=1
-			return int(str(text[start+1:end]))
-		else:
-			return text
+	def get(self, key):
+		if isinstance(key, int):
+			#if not key in names.field_names # KeyError detection is automatic
+			key = names.field_names[key] + '(' + str(key) + ')'
+		#if not key in self.data # KeyError detection is automatic
+		return self.data[key]
 
 	def encodeField(self, output, field):
 		value = self.data[field]
@@ -290,6 +236,98 @@ class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify typ
 				print("missing type in typeLists.fieldList: " + str(fieldNum))
 		return output
 
+	def encode_to_json(self):
+		return json.dumps(self, cls=MyEncoder,indent=2)
+
+class Reference(Abstract_Serializable_BW_Object):
+	def __init__(self, id = 0):
+		if isinstance(id, BW_Object):
+			self.object_ref = id.object_id
+		elif isinstance(id, int):
+			self.object_ref = id
+		else:
+			raise TypeError()
+
+	def __str__(self):
+		return "Reference: " + str(self.object_ref)
+
+	def setID(self, id):
+		self.object_ref = id
+
+	def serialize(self):
+		return {'object_ref': self.object_ref}
+
+	def encode(self):
+		output = bytearray(b'')
+		output += util.hexPad(self.object_ref,8)
+		return output
+
+class Color(Abstract_Serializable_BW_Object):
+	def __init__(self, rd, gr, bl, al):
+		self.type = 'color'
+		self.data = [rd, gr, bl, al]
+		if (al == 1.0):
+			self.data = self.data[:-1]
+
+	def __str__(self):
+		return "Color: " + str(self.data)
+
+	def encode(self):
+		output = bytearray(b'')
+		count = 0
+		for item in self.data["data"]:
+			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
+			output += util.hexPad(flVal,8)
+			count += 1
+		if count == 3:
+			output += struct.pack('<f', 1.0)
+		return output
+
+# BW Objects are anything that can be in the device contents, including types and panels
+class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to simplify type checking
+
+	def __init__(self, classnum, fields = None,):
+		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+		self.classnum = classnum
+		global g_unique_object_id
+		g_unique_object_id += 1
+		self.object_id = g_unique_object_id
+		self.data = OrderedDict()
+		for each_field in typeLists.class_type_list[classnum]:
+			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
+			self.data[fieldname] = typeLists.get_default(each_field)
+		if not fields == None:
+			for each_field in fields:
+				if each_field in self.data:
+					self.data[each_field] = fields[each_field]
+
+	def __str__(self):
+		return "Object: " + str(self.classname)
+
+	def setID(self, id):
+		self.object_id = id
+
+	# removed: def stringify(self, tabs = 0):
+
+	def listFields(self):
+		output = ''
+		output += "class : " + str(self.classname) + '\n'
+		for each_field in self.data:
+			output += each_field + '\n'
+		return output
+
+	def extractNum(self, text = None):
+		if text == None:
+			text = self.classname
+		if text[-1:] == ')':
+			start = len(text)-1
+			end = start
+			while text[start] != '(':
+				start-=1
+			return int(str(text[start+1:end]))
+		else:
+			return text
+
 	def encode(self):
 		output = bytearray(b'')
 		if self.classname == 'meta':
@@ -310,14 +348,14 @@ class BW_Object(Abstract_BW_Object): # the inheritence is mostly to simplify typ
 			output += bytearray.fromhex('00000000')
 		return output
 
-	def encode_to_json(self):
-		return json.dumps(self, cls=MyEncoder,indent=2)
 
-class BW_Meta(BW_Object):
+class BW_Meta(Abstract_Serializable_BW_Object):
 
 	def __init__(self, type = ''):
 		self.classname = 'meta'
-		self.object_id = 1
+		global g_unique_object_id
+		g_unique_object_id += 1
+		self.object_id = g_unique_object_id
 		self.data = OrderedDict()
 		# Default headers
 		for each_field in BW_FILE_META_TEMPLATE:
