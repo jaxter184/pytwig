@@ -1,4 +1,4 @@
-from src.lib import fs, objects, atoms, panel_items, route, dicttobw
+from src.lib import bwfile
 from src.lib.luts import typeLists
 
 chain_meta =  {
@@ -22,6 +22,9 @@ chain_meta =  {
 
 if __name__ == "__main__":
 	#test = objects.BW_File('application/bitwig-device')
+	test = bwfile.BW_File()
+	test.read('hidden/Chain.bwdevice')
+	'''
 	test = objects.BW_File('application/bitwig-device')
 	for each_field in chain_meta:
 		test.meta.set(each_field, chain_meta[each_field])
@@ -94,6 +97,6 @@ if __name__ == "__main__":
 	test.contents.set(4846, True).set(4847, True).set(392, True)
 	test.contents.set(386, "Chain").set(2057, "Serial device chain group").set(387, "Bitwig").set(390, "Container")
 	test.contents.set(385, "c86d21fb-d544-4daf-a1bf-57de22aa320c")
-
-	#fs.write("json", test.serialize().replace('":', '" :'))
-	fs.write_binary("dsfah", test.encode())
+	'''
+	test.export("jsond")
+	test.write("dsfah")

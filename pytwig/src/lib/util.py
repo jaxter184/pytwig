@@ -73,3 +73,6 @@ def extract_num(name):
 		except:
 			pass
 	return name[0]
+
+def btoi(byte):
+	return int.from_bytes(byte, byteorder='big')

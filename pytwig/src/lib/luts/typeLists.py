@@ -26,7 +26,7 @@ def get_default(classnum):
 	elif integer == 0x14:
 		pass # mapping?
 	elif integer == 0x15:
-		return uuid.UUID('00000000-0000-0000-0000-000000000000').bytes
+		return uuid.UUID('00000000-0000-0000-0000-000000000000')
 	elif integer == 0x16:
 		from src.lib import objects
 		return objects.Color(0.5,0.5,0.5,1)

@@ -2,117 +2,41 @@
 # Some content taken from stylemistake's Bitwig modulator stuff https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import util
+from src.lib.util import *
 from src.lib.luts import typeLists, names
 import uuid
 import struct
 
-g_object_id = 0
-g_unique_object_id = 10000
+g_serialize_object_id = 0
+g_unique_object_id = 0
 obj_id_hash = {}
 import json
-class MyEncoder(json.JSONEncoder):
+
+class BW_Serializer(json.JSONEncoder):
 	def default(self, o):
-		global g_object_id
+		global g_serialize_object_id
 		if isinstance(o, BW_Object):
-			obj_id_hash[o.object_id] = g_object_id
-			g_object_id += 1
+			obj_id_hash[o.object_id] = g_serialize_object_id
+			g_serialize_object_id += 1
 			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
 		elif isinstance(o, BW_Meta):
-			obj_id_hash[o.object_id] = g_object_id
-			g_object_id += 1
+			obj_id_hash[o.object_id] = g_serialize_object_id
+			g_serialize_object_id += 1
 			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
 		elif isinstance(o, Reference):
-			return OrderedDict([("object_ref",obj_id_hash[o.object_ref])])
+			try:
+				return OrderedDict([("object_ref",obj_id_hash[o.object_ref])])
+			except:
+				print(o.object_ref)
+				return OrderedDict([("object_ref",o.object_ref)])
 		elif isinstance(o, bytes):
 			return "TODO: replace with UUID interpreter"
 		return o.__dict__
 
-BW_VERSION = '2.4.2'
-
-BW_FILE_META_TEMPLATE = [
-	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
-	'revision_id', 'revision_no', 'tags', 'type',]
-
-BW_DEVICE_META_TEMPLATE = [
-	'additional_device_types', 'device_description', 'device_type', 'device_uuid',
-	# TODO: find out what these do
-	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output',
-	'suggest_for_audio_input', 'suggest_for_note_input',]
-
-BW_MODULATOR_META_TEMPLATE = [
-	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
-
-BW_PRESET_TEMPLATE = [
-	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
-
-# TODO: split into another file. There is already a bwfile file.
-class BW_File:
-
-	def __init__(self, type = ''):
-		self.header = 'BtWgXXXXX'
-		self.meta = BW_Meta(type)
-		self.meta.data['application_version_name'] = BW_VERSION
-		self.meta.data = OrderedDict(sorted(self.meta.data.items(), key=lambda t: t[0])) # Sorts the dict. CLEAN: maybe put this somewhere else?
-		self.contents = None
-
-	@staticmethod
-	def read(text_data): # TODO: Fix this
-		if text_data[:4] == 'BtWg' and text_data[4:40].isdigit():
-			# Interpreted header
-			if not (text_data[:4] == 'BtWg' and text_data[4:40].isdigit()):
-				raise TypeError('"' + text_data[:40] + '" is not a valid header')
-		# Interpreted header
-
-	def __str__(self):
-		return "File: " +  self.meta.data['device_name']
-
-	def set_header(self, value):
-		if not (value[:4] == 'BtWg' and value[4:].isdigit() and len(value) == 40):
-			raise TypeError('"' + value + '" is not a valid header')
-		else:
-			self.header = value
-		return self
-
-	def set_contents(self, value):
-		if not isinstance(value, BW_Object):
-			raise TypeError('"' + str(value) + '" is not an atom')
-		else:
-			self.contents = value
-		return self
-
-	def set_uuid(self, value):
-		self.contents.data['device_UUID'] = value
-		self.meta.data['device_uuid'] = value
-		self.meta.data['device_id'] = value
-		return self
-
-	def set_description(self, value):
-		self.meta.data['device_description'] = value
-		self.contents.data['description'] = value
-		return self
-
-	def serialize(self):
-		global g_object_id
-		g_object_id = 0
-		output = self.header
-		output += self.meta.serialize()
-		output += '\n'
-		output += self.contents.serialize()
-		return output
-
-	def encode(self):
-		global g_object_id
-		g_object_id = 0
-		output = bytearray(self.header, "utf-8")
-		output += self.meta.encode()
-		output += bytearray('\n', "utf-8")
-		output += self.contents.encode()
-		return output
 
 class Abstract_Serializable_BW_Object:
 	def __init__(self):
-		print("please dont initialize me")
+		raise Error("please dont initialize me")
 
 	def set(self, key, val):
 		if isinstance(key, int):
@@ -129,49 +53,43 @@ class Abstract_Serializable_BW_Object:
 		#if not key in self.data # KeyError detection is automatic
 		return self.data[key]
 
-	def encodeField(self, output, field):
+	def encode_field(self, output, field):
 		value = self.data[field]
-		fieldNum = util.extract_num(field)
+		fieldNum = extract_num(field)
 		if value==None:
 			output += bytearray.fromhex('0a')
-			#print("none")
 		else:
-			#print(typeLists.fieldList[fieldNum])
-			#print(fieldNum)
 			if fieldNum in typeLists.field_type_list:
 				if typeLists.field_type_list[fieldNum] == 0x01:
 					if value <= 127 and value >= -128:
 						output += bytearray.fromhex('01')
 						if value < 0:
-							#print(hex(0xFF + value + 1)[2:])
 							output += bytearray.fromhex(hex(0xFF + value + 1)[2:])
 						else:
-							output += util.hexPad(value, 2)
+							output += hexPad(value, 2)
 					elif value <= 32767 and value >= -32768:
 						output += bytearray.fromhex('02')
 						if value < 0:
-							#print(value)
-							#print(hex((value + (1 << 4)) % (1 << 4)))
 							output += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
 						else:
-							output += util.hexPad(value, 4)
+							output += hexPad(value, 4)
 					elif value <= 2147483647 and value >= -2147483648:
 						output += bytearray.fromhex('03')
 						if value < 0:
 							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
 						else:
-							output += util.hexPad(value, 8)
+							output += hexPad(value, 8)
 				elif typeLists.field_type_list[fieldNum] == 0x05:
 					output += bytearray.fromhex('05')
 					output += bytearray.fromhex('01' if value else '00')
 				elif typeLists.field_type_list[fieldNum] == 0x06:
 					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
 					output += bytearray.fromhex('06')
-					output += util.hexPad(flVal,8)
+					output += hexPad(flVal,8)
 				elif typeLists.field_type_list[fieldNum] == 0x07:
 					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
 					output += bytearray.fromhex('07')
-					output += util.hexPad(dbVal,16)
+					output += hexPad(dbVal,16)
 				elif typeLists.field_type_list[fieldNum] == 0x08:
 					output += bytearray.fromhex('08')
 					value = value.replace('\\n', '\n')
@@ -180,7 +98,7 @@ class Abstract_Serializable_BW_Object:
 						output += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
 						output.extend(value.encode('utf-16be'))
 					else:
-						output += util.hexPad(len(value), 8)
+						output += hexPad(len(value), 8)
 						output.extend(value.encode('utf-8'))
 				elif typeLists.field_type_list[fieldNum] == 0x09:
 					if isinstance(value, Reference):
@@ -200,17 +118,16 @@ class Abstract_Serializable_BW_Object:
 							output += bytearray.fromhex('00000001')
 							output += item.encode()
 						else:
-							print("something went wrong in atoms.py: \'not object list\'")
+							print("something went wrong in objects.py: \'not object list\'")
 					output += bytearray.fromhex('00000003')
 				elif typeLists.field_type_list[fieldNum] == 0x14:
 					output += bytearray.fromhex('14')
 					if '' in value["type"]:
-						#print("empty string: this shouldnt happen in devices and presets")
 						pass
 					else:
 						output += bytearray.fromhex('01')
 						for key in value["data"]:
-							output += util.hexPad(len(key), 8)
+							output += hexPad(len(key), 8)
 							output.extend(key.encode('utf-8'))
 							output += value["data"][key].encode()
 					output += bytearray.fromhex('00')
@@ -223,20 +140,19 @@ class Abstract_Serializable_BW_Object:
 					output += value.encode()
 				elif typeLists.field_type_list[fieldNum] == 0x17:
 					output += bytearray.fromhex('17')
-					output += util.hexPad(len(value), 8)
+					output += hexPad(len(value), 8)
 					for item in value:
 						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
-						output += util.hexPad(flVal,8)
+						output += hexPad(flVal,8)
 				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
 					output += bytearray.fromhex('19')
-					output += util.hexPad(len(value), 8)
+					output += hexPad(len(value), 8)
 					for i in value:
 						i = i.replace('\\n', '\n')
-						output += util.hexPad(len(i), 8)
+						output += hexPad(len(i), 8)
 						output.extend(i.encode('utf-8'))
 				else:
 					if typeLists.field_type_list[fieldNum] == None:
-						#print("atoms.py: 'None' in atom encoder. obj: " + str(fieldNum)) #temporarily disabling this error warning because i have no clue what any of these fields are
 						pass
 					else:
 						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
@@ -244,16 +160,177 @@ class Abstract_Serializable_BW_Object:
 				print("missing type in typeLists.fieldList: " + str(fieldNum))
 		return output
 
-	def serialize(self):
-		return json.dumps(self, cls=MyEncoder,indent=2)
+	@staticmethod
+	def parse_field(bytecode, string_mode = 0):
+		parse_type = bytecode[0]
+		bytecode = bytecode[1:]
+		if parse_type == 0x01:	#8 bit int
+			val = bytecode[0]
+			if val & 0x80:
+				val -= 0x100
+			return val, bytecode[1:]
+		elif parse_type == 0x02:	#16 bit int
+			val = btoi(bytecode[:2])
+			if val & 0x8000:
+				val -= 0x10000
+			return val, bytecode[2:]
+		elif parse_type == 0x03:	#32 bit int
+			val = btoi(bytecode[:4])
+			if val & 0x80000000:
+				val -= 0x100000000
+			return val, bytecode[4:]
+		elif parse_type == 0x05:	#boolean
+			return bool(bytecode[0]), bytecode[1:]
+		elif parse_type == 0x06:	#float
+			val = struct.unpack('>f', bytecode[:4])[0]
+			return val, bytecode[4:]
+		elif parse_type == 0x07:	#double
+			val = struct.unpack('>d', bytecode[:8])[0]
+			return val, bytecode[8:]
+		elif parse_type == 0x08:	#string
+			if string_mode == 0:
+				stringLength = btoi(bytecode[:4])
+				bytecode = bytecode[4:]
+				val = ''
+				char_enc = False #false:utf-8, true:utf-16
+				if (stringLength & 0x80000000):
+					stringLength &= 0x7fffffff
+					char_enc = True
+				if (stringLength > 100000):
+					raise TypeError('String is too long')
+				else:
+					val = bytecode[:stringLength*(2 if char_enc else 1)].decode('utf-16' if char_enc else 'utf-8')
+				return val, bytecode[stringLength*(2 if char_enc else 1):]
+			elif string_mode == 1:
+				while (bytecode[0]) != 0x00:
+					val += chr(bytecode[0])
+					bytecode = bytecode[1:]
+				return val, bytecode[1:]
+		elif parse_type == 0x09:	#object
+			return Abstract_Serializable_BW_Object.decode_object(bytecode)
+		elif parse_type == 0x0a:	#null
+			return None, bytecode
+		elif parse_type == 0x0b:	#object reference
+			objNum = btoi(bytecode[:4])
+			val = Reference(objNum)
+			return val, bytecode[4:]
+		elif parse_type == 0x0d:	#structure									#TODO: implement structure field decoding
+			raise TypeError('parse type 0d not yet implemented')
+			headerLength = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			if currentSection == 2:
+				#field_length += 57 #not sure when to put this in
+				val = str(bytecode[:4]) + " - structure placeholder"
+			elif headerLength<54:
+				raise TypeError("short header")
+				string_mode = 1
+				val = Abstract_Serializable_BW_Object.decode_object(bytecode)
+				string_mode = 0
+			else:
+				val = "structure placeholder"
+			return val, bytecode[54:]
+		elif parse_type == 0x12:	#object array
+			tempList = []
+			while (btoi(bytecode[:4]) != 0x3):
+				(each_class, bytecode) = Abstract_Serializable_BW_Object.decode_object(bytecode)
+				tempList.append(each_class)
+			return tempList, bytecode[4:]
+		elif parse_type == 0x14:	#map string									#TODO: make this work for other types
+			#field += 'type : "map<string,object>",\n' + 'data :\n' + '{\n'
+			out = {"type": '', "data": {}}
+			string = ''
+			out["type"] = "map<string,object>"
+			while (bytecode[0]):
+				sub_parse_type = bytecode[0]
+				bytecode = bytecode[1:]
+				if sub_parse_type == 0x0:
+					out["data"][''] = None
+				elif sub_parse_type == 0x1:
+					string_len = btoi(bytecode[:4])
+					bytecode = bytecode[4:]
+					string = str(bytecode[:string_len], 'utf-8')
+					bytecode = bytecode[string_len:]
+					(out["data"][string], bytecode) = Abstract_Serializable_BW_Object.decode_object(bytecode)
+				else:
+					out["type"] = "unknown"
+			return out, bytecode
+		elif parse_type == 0x15:	#UUID
+			val = str(uuid.UUID(bytes=bytecode[:16]))
+			return val, bytecode[16:]
+		elif parse_type == 0x16:	#color
+			flVals = struct.unpack('>ffff', bytecode[:16])
+			return Color(*flVals), bytecode[16:]
+		elif parse_type == 0x17:	#float array (never been used before)		#TODO: implement this
+			arr_len = btoi(bytecode[:4])
+			return val, bytecode[:4+arr_len*4]
+		elif parse_type == 0x19: #string array
+			arr_len = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			arr = []
+			for i in range(arr_len):
+				str_len = btoi(bytecode[:4])
+				bytecode = bytecode[4:]
+				arr.append(bytecode[:str_len].decode('utf-8'))
+				bytecode = bytecode[str_len:]
+			return arr, bytecode[16:]
+		elif parse_type == 0x1a: #source?													#not done yet
+			#print("shit,1a ")
+			num_len = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			if num_len == 0x90:
+				return (None, None)
+			num_val = btoi(bytecode[:4*num_len])
+			bytecode = bytecode[4*num_len:]
 
+			str_len = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			str_val = str(bytecode[:str_len].decode("utf-8"))
+			bytecode = bytecode[str_len:]
+
+			return route.Route(num_val, str_val), bytecode
+		else:
+			raise TypeError('unknown type ' + str(parse_type))
+
+	@staticmethod
+	def decode_object(bytecode):
+		from src.lib import atoms
+		from src.lib.luts import names, backup_class_names
+		obj_num = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		if obj_num == 0x1: #object references
+			obj_num = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			return Reference(obj_num), bytecode
+		else:
+			obj = BW_Object(obj_num)
+			bytecode = Abstract_Serializable_BW_Object.decode_fields(bytecode, obj)
+			return obj, bytecode
+
+	@staticmethod
+	def decode_fields(bytecode, obj):
+		field_num = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		while (field_num):
+			if field_num in names.field_names:
+				field_name = names.field_names[field_num] +  '(' + str(field_num) + ')'
+			else:
+				field_name = "missing_field" +  '(' + str(field_num) + ')'
+				print("missing field: " + str(field_num))
+			(value, bytecode) = Abstract_Serializable_BW_Object.parse_field(bytecode)
+			obj.data[field_name] = value
+			field_num = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+		return bytecode
+
+	def serialize(self):
+		return json.dumps(self, cls=BW_Serializer,indent=2)
 
 	def encode(self):
 		output = bytearray(b'')
-		output += util.hexPad(self.classnum,8)
+		output += hexPad(self.classnum,8)
 		for each_field in self.data:
-			output += util.hexPad(util.extract_num(each_field),8)
-			output = self.encodeField(output, each_field)
+			output += hexPad(extract_num(each_field),8)
+			output = self.encode_field(output, each_field)
 		output += bytearray.fromhex('00000000')
 		return output
 
@@ -275,7 +352,7 @@ class Reference(Abstract_Serializable_BW_Object):
 
 	def encode(self):
 		output = bytearray(b'')
-		output += util.hexPad(self.object_ref,8)
+		output += hexPad(self.object_ref,8)
 		return output
 
 class Color(Abstract_Serializable_BW_Object):
@@ -292,23 +369,27 @@ class Color(Abstract_Serializable_BW_Object):
 		output = bytearray(b'')
 		count = 0
 		for item in self.data:
-			flVal = struct.unpack('<I', struct.pack('<f', item))[0]
-			output += util.hexPad(flVal,8)
+			flVal = struct.unpack('>I', struct.pack('>f', item))[0]
+			output += hexPad(flVal,8)
 			count += 1
 		if count == 3:
-			output += struct.pack('<f', 1.0)
+			output += struct.pack('>f', 1.0)
 		return output
 
 # BW Objects are anything that can be in the device contents, including types and panels
+# Anything with an object id
 class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to simplify type checking
 
-	def __init__(self, classnum, fields = None,):
-		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
-		self.classnum = classnum
+	def __init__(self, classnum = None, fields = None,):
 		global g_unique_object_id
 		g_unique_object_id += 1
 		self.object_id = g_unique_object_id
 		self.data = OrderedDict()
+
+		if classnum == None:
+			return
+		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+		self.classnum = classnum
 		for each_field in typeLists.class_type_list[classnum]:
 			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
 			self.data[fieldname] = typeLists.get_default(each_field)
@@ -331,12 +412,16 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 
 class BW_Meta(Abstract_Serializable_BW_Object):
 
-	def __init__(self, type = ''):
-		self.classname = 'meta'
+	def __init__(self, type = None):
 		global g_unique_object_id
 		g_unique_object_id += 1
 		self.object_id = g_unique_object_id
 		self.data = OrderedDict()
+
+		if type == None:
+			return
+
+		self.classname = 'meta'
 		# Default headers
 		for each_field in BW_FILE_META_TEMPLATE:
 			self.data[each_field] = typeLists.get_default(each_field)
@@ -352,7 +437,6 @@ class BW_Meta(Abstract_Serializable_BW_Object):
 		else:
 			raise TypeError('Type "' + type + '" is an invalid application type')
 
-
 	def encode(self):
 		output = bytearray(b'')
 		output += bytearray.fromhex('00000004')
@@ -360,8 +444,37 @@ class BW_Meta(Abstract_Serializable_BW_Object):
 		output.extend('meta'.encode('utf-8'))
 		for each_field in self.data:
 			output += bytearray.fromhex('00000001')
-			output += util.hexPad(len(each_field), 8)
+			output += hexPad(len(each_field), 8)
 			output.extend(each_field.encode('utf-8'))
-			output = self.encodeField(output, each_field)
+			output = self.encode_field(output, each_field)
 		output += bytearray.fromhex('00000000')
 		return output
+
+	def decode(self, bytecode):
+		if bytecode[:4] != bytearray([0,0,0,0x04]):
+			raise TypeError()
+		bytecode = bytecode[4:]
+		length = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		self.classname = str(bytecode[:length], 'utf-8')
+		bytecode = bytecode[length:]
+		while bytecode[:4] != bytearray([0,0,0,0]):
+			if btoi(bytecode[:4]) == 0x1: #parameter
+				bytecode = bytecode[4:]
+				key_len = btoi(bytecode[:4]) #length of the string
+				bytecode = bytecode[4:]
+				key = bytecode[:key_len].decode('utf-8')
+				bytecode = bytecode[key_len:]
+				(value, bytecode) = self.parse_field(bytecode)
+				self.data[key] = value
+			elif keyType == 0x4: #object
+				raise TypeError()
+				stringLength = intConv(text[offset:offset+4])
+				offset += 4
+				name = bigChr(text[offset:offset+stringLength])
+				offset += stringLength
+				objList.append(Atom(name))
+			else:
+				raise TypeError()
+		bytecode = bytecode[4:]
+		return bytecode
