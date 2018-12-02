@@ -9,30 +9,23 @@ import struct
 
 g_serialize_object_id = 0
 g_unique_object_id = 0
-obj_id_hash = {}
 import json
-
 class BW_Serializer(json.JSONEncoder):
 	def default(self, o):
 		global g_serialize_object_id
 		if isinstance(o, BW_Object):
-			obj_id_hash[o.object_id] = g_serialize_object_id
+			o.object_id = g_serialize_object_id
 			g_serialize_object_id += 1
-			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
+			return OrderedDict([("class",o.classname), ("object_id",o.object_id), ("data",o.data)])
 		elif isinstance(o, BW_Meta):
-			obj_id_hash[o.object_id] = g_serialize_object_id
+			o.object_id = g_serialize_object_id
 			g_serialize_object_id += 1
-			return OrderedDict([("class",o.classname), ("object_id",obj_id_hash[o.object_id]), ("data",o.data)])
+			return OrderedDict([("class",o.classname), ("object_id",o.object_id), ("data",o.data)])
 		elif isinstance(o, Reference):
-			try:
-				return OrderedDict([("object_ref",obj_id_hash[o.object_ref])])
-			except:
-				print(o.object_ref)
-				return OrderedDict([("object_ref",o.object_ref)])
+			return OrderedDict([("object_ref",o.target.object_id)])
 		elif isinstance(o, bytes):
 			return "TODO: replace with UUID interpreter"
 		return o.__dict__
-
 
 class Abstract_Serializable_BW_Object:
 	def __init__(self):
@@ -40,10 +33,15 @@ class Abstract_Serializable_BW_Object:
 
 	def set(self, key, val):
 		if isinstance(key, int):
-			#if not key in names.field_names # KeyError detection is automatic
 			key = names.field_names[key] + '(' + str(key) + ')'
-		#if not key in self.data # KeyError detection is automatic
+		if not key in self.data:
+			raise KeyError()
 		self.data[key] = val
+		return self
+
+	def set_multi(self, dict):
+		for each_key in dict:
+			self.set(each_key, dict[each_key])
 		return self
 
 	def get(self, key):
@@ -53,113 +51,7 @@ class Abstract_Serializable_BW_Object:
 		#if not key in self.data # KeyError detection is automatic
 		return self.data[key]
 
-	def encode_field(self, output, field):
-		value = self.data[field]
-		fieldNum = extract_num(field)
-		if value==None:
-			output += bytearray.fromhex('0a')
-		else:
-			if fieldNum in typeLists.field_type_list:
-				if typeLists.field_type_list[fieldNum] == 0x01:
-					if value <= 127 and value >= -128:
-						output += bytearray.fromhex('01')
-						if value < 0:
-							output += bytearray.fromhex(hex(0xFF + value + 1)[2:])
-						else:
-							output += hexPad(value, 2)
-					elif value <= 32767 and value >= -32768:
-						output += bytearray.fromhex('02')
-						if value < 0:
-							output += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
-						else:
-							output += hexPad(value, 4)
-					elif value <= 2147483647 and value >= -2147483648:
-						output += bytearray.fromhex('03')
-						if value < 0:
-							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
-						else:
-							output += hexPad(value, 8)
-				elif typeLists.field_type_list[fieldNum] == 0x05:
-					output += bytearray.fromhex('05')
-					output += bytearray.fromhex('01' if value else '00')
-				elif typeLists.field_type_list[fieldNum] == 0x06:
-					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
-					output += bytearray.fromhex('06')
-					output += hexPad(flVal,8)
-				elif typeLists.field_type_list[fieldNum] == 0x07:
-					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
-					output += bytearray.fromhex('07')
-					output += hexPad(dbVal,16)
-				elif typeLists.field_type_list[fieldNum] == 0x08:
-					output += bytearray.fromhex('08')
-					value = value.replace('\\n', '\n')
-					try: value.encode("ascii")
-					except UnicodeEncodeError:
-						output += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
-						output.extend(value.encode('utf-16be'))
-					else:
-						output += hexPad(len(value), 8)
-						output.extend(value.encode('utf-8'))
-				elif typeLists.field_type_list[fieldNum] == 0x09:
-					if isinstance(value, Reference):
-						output += bytearray.fromhex('0b')
-						output += value.encode()
-					elif isinstance(value, BW_Object):
-						output += bytearray.fromhex('09')
-						output += value.encode()
-					elif isinstance(value, NoneType):
-						output += bytearray.fromhex('0a')
-				elif typeLists.field_type_list[fieldNum] == 0x12:
-					output += bytearray.fromhex('12')
-					for item in value:
-						if isinstance(item, BW_Object):
-							output += item.encode()
-						elif isinstance(item, Reference):
-							output += bytearray.fromhex('00000001')
-							output += item.encode()
-						else:
-							print("something went wrong in objects.py: \'not object list\'")
-					output += bytearray.fromhex('00000003')
-				elif typeLists.field_type_list[fieldNum] == 0x14:
-					output += bytearray.fromhex('14')
-					if '' in value["type"]:
-						pass
-					else:
-						output += bytearray.fromhex('01')
-						for key in value["data"]:
-							output += hexPad(len(key), 8)
-							output.extend(key.encode('utf-8'))
-							output += value["data"][key].encode()
-					output += bytearray.fromhex('00')
-				elif typeLists.field_type_list[fieldNum] == 0x15:
-					output += bytearray.fromhex('15')
-					placeholder = uuid.UUID(value)
-					output.extend(placeholder.bytes)
-				elif typeLists.field_type_list[fieldNum] == 0x16:
-					output += bytearray.fromhex('16')
-					output += value.encode()
-				elif typeLists.field_type_list[fieldNum] == 0x17:
-					output += bytearray.fromhex('17')
-					output += hexPad(len(value), 8)
-					for item in value:
-						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
-						output += hexPad(flVal,8)
-				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
-					output += bytearray.fromhex('19')
-					output += hexPad(len(value), 8)
-					for i in value:
-						i = i.replace('\\n', '\n')
-						output += hexPad(len(i), 8)
-						output.extend(i.encode('utf-8'))
-				else:
-					if typeLists.field_type_list[fieldNum] == None:
-						pass
-					else:
-						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
-			else:
-				print("missing type in typeLists.fieldList: " + str(fieldNum))
-		return output
-
+	# Decoding bytecode
 	@staticmethod
 	def parse_field(bytecode, string_mode = 0):
 		parse_type = bytecode[0]
@@ -292,21 +184,6 @@ class Abstract_Serializable_BW_Object:
 			raise TypeError('unknown type ' + str(parse_type))
 
 	@staticmethod
-	def decode_object(bytecode):
-		from src.lib import atoms
-		from src.lib.luts import names, backup_class_names
-		obj_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
-		if obj_num == 0x1: #object references
-			obj_num = btoi(bytecode[:4])
-			bytecode = bytecode[4:]
-			return Reference(obj_num), bytecode
-		else:
-			obj = BW_Object(obj_num)
-			bytecode = Abstract_Serializable_BW_Object.decode_fields(bytecode, obj)
-			return obj, bytecode
-
-	@staticmethod
 	def decode_fields(bytecode, obj):
 		field_num = btoi(bytecode[:4])
 		bytecode = bytecode[4:]
@@ -322,8 +199,132 @@ class Abstract_Serializable_BW_Object:
 			bytecode = bytecode[4:]
 		return bytecode
 
+	@staticmethod
+	def decode_object(bytecode):
+		from src.lib import atoms
+		from src.lib.luts import names, backup_class_names
+		obj_num = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		if obj_num == 0x1: #object references
+			obj_num = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+			return Reference(obj_num), bytecode
+		else:
+			obj = BW_Object(obj_num)
+			bytecode = Abstract_Serializable_BW_Object.decode_fields(bytecode, obj)
+			return obj, bytecode
+
+	# Serializing
 	def serialize(self):
 		return json.dumps(self, cls=BW_Serializer,indent=2)
+
+	# Encoding to bytecode
+	def encode_field(self, output, field):
+		value = self.data[field]
+		fieldNum = extract_num(field)
+		if value==None:
+			output += bytearray.fromhex('0a')
+		else:
+			if fieldNum in typeLists.field_type_list:
+				if typeLists.field_type_list[fieldNum] == 0x01:
+					if value <= 127 and value >= -128:
+						output += bytearray.fromhex('01')
+						if value < 0:
+							output += bytearray.fromhex(hex(0xFF + value + 1)[2:])
+						else:
+							output += hexPad(value, 2)
+					elif value <= 32767 and value >= -32768:
+						output += bytearray.fromhex('02')
+						if value < 0:
+							output += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
+						else:
+							output += hexPad(value, 4)
+					elif value <= 2147483647 and value >= -2147483648:
+						output += bytearray.fromhex('03')
+						if value < 0:
+							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
+						else:
+							output += hexPad(value, 8)
+				elif typeLists.field_type_list[fieldNum] == 0x05:
+					output += bytearray.fromhex('05')
+					output += bytearray.fromhex('01' if value else '00')
+				elif typeLists.field_type_list[fieldNum] == 0x06:
+					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
+					output += bytearray.fromhex('06')
+					output += hexPad(flVal,8)
+				elif typeLists.field_type_list[fieldNum] == 0x07:
+					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
+					output += bytearray.fromhex('07')
+					output += hexPad(dbVal,16)
+				elif typeLists.field_type_list[fieldNum] == 0x08:
+					output += bytearray.fromhex('08')
+					value = value.replace('\\n', '\n')
+					try: value.encode("ascii")
+					except UnicodeEncodeError:
+						output += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
+						output.extend(value.encode('utf-16be'))
+					else:
+						output += hexPad(len(value), 8)
+						output.extend(value.encode('utf-8'))
+				elif typeLists.field_type_list[fieldNum] == 0x09:
+					if isinstance(value, Reference):
+						output += bytearray.fromhex('0b')
+						output += value.encode()
+					elif isinstance(value, BW_Object):
+						output += bytearray.fromhex('09')
+						output += value.encode()
+					elif isinstance(value, NoneType):
+						output += bytearray.fromhex('0a')
+				elif typeLists.field_type_list[fieldNum] == 0x12:
+					output += bytearray.fromhex('12')
+					for item in value:
+						if isinstance(item, BW_Object):
+							output += item.encode()
+						elif isinstance(item, Reference):
+							output += bytearray.fromhex('00000001')
+							output += item.encode()
+						else:
+							print("something went wrong in objects.py: \'not object list\'")
+					output += bytearray.fromhex('00000003')
+				elif typeLists.field_type_list[fieldNum] == 0x14:
+					output += bytearray.fromhex('14')
+					if '' in value["type"]:
+						pass
+					else:
+						output += bytearray.fromhex('01')
+						for key in value["data"]:
+							output += hexPad(len(key), 8)
+							output.extend(key.encode('utf-8'))
+							output += value["data"][key].encode()
+					output += bytearray.fromhex('00')
+				elif typeLists.field_type_list[fieldNum] == 0x15:
+					output += bytearray.fromhex('15')
+					placeholder = uuid.UUID(value)
+					output.extend(placeholder.bytes)
+				elif typeLists.field_type_list[fieldNum] == 0x16:
+					output += bytearray.fromhex('16')
+					output += value.encode()
+				elif typeLists.field_type_list[fieldNum] == 0x17:
+					output += bytearray.fromhex('17')
+					output += hexPad(len(value), 8)
+					for item in value:
+						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
+						output += hexPad(flVal,8)
+				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
+					output += bytearray.fromhex('19')
+					output += hexPad(len(value), 8)
+					for i in value:
+						i = i.replace('\\n', '\n')
+						output += hexPad(len(i), 8)
+						output.extend(i.encode('utf-8'))
+				else:
+					if typeLists.field_type_list[fieldNum] == None:
+						pass
+					else:
+						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
+			else:
+				print("missing type in typeLists.fieldList: " + str(fieldNum))
+		return output
 
 	def encode(self):
 		output = bytearray(b'')
@@ -334,25 +335,24 @@ class Abstract_Serializable_BW_Object:
 		output += bytearray.fromhex('00000000')
 		return output
 
-
 class Reference(Abstract_Serializable_BW_Object):
-	def __init__(self, id = 0):
-		if isinstance(id, BW_Object):
-			self.object_ref = id.object_id
-		elif isinstance(id, int):
-			self.object_ref = id
+	target = None
+
+	def __init__(self, tgt = 0):
+		if isinstance(tgt, BW_Object):
+			self.target = tgt
 		else:
 			raise TypeError()
 
 	def __str__(self):
-		return "Reference: " + str(self.object_ref)
+		return "Reference: " + str(self.target.object_id)
 
 	def serialize(self):
-		return {'object_ref': self.object_ref}
+		return {'object_ref': self.target.object_id}
 
 	def encode(self):
 		output = bytearray(b'')
-		output += hexPad(self.object_ref,8)
+		output += hexPad(self.target.object_id,8)
 		return output
 
 class Color(Abstract_Serializable_BW_Object):
@@ -388,9 +388,14 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 
 		if classnum == None:
 			return
-		self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
-		self.classnum = classnum
-		for each_field in typeLists.class_type_list[classnum]:
+		if isinstance(classnum, int):
+			self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+			self.classnum = classnum
+		elif isinstance(classnum, str):
+			from src.lib import util
+			self.classname = classnum
+			self.classnum = util.extract_num(classnum)
+		for each_field in typeLists.class_type_list[self.classnum]:
 			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
 			self.data[fieldname] = typeLists.get_default(each_field)
 		if not fields == None:
@@ -409,6 +414,24 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 		for each_field in self.data:
 			output += each_field + '\n'
 		return output
+
+BW_VERSION = '2.4.2'
+
+BW_FILE_META_TEMPLATE = [
+	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
+	'revision_id', 'revision_no', 'tags', 'type',]
+
+BW_DEVICE_META_TEMPLATE = [
+	'additional_device_types', 'device_description', 'device_type', 'device_uuid',
+	# TODO: find out what these do
+	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output',
+	'suggest_for_audio_input', 'suggest_for_note_input',]
+
+BW_MODULATOR_META_TEMPLATE = [
+	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
+
+BW_PRESET_TEMPLATE = [
+	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
 
 class BW_Meta(Abstract_Serializable_BW_Object):
 
@@ -436,6 +459,7 @@ class BW_Meta(Abstract_Serializable_BW_Object):
 				self.data[each_field] = typeLists.get_default(each_field)
 		else:
 			raise TypeError('Type "' + type + '" is an invalid application type')
+		self.data['application_version_name'] = BW_VERSION
 
 	def encode(self):
 		output = bytearray(b'')
@@ -478,3 +502,26 @@ class BW_Meta(Abstract_Serializable_BW_Object):
 				raise TypeError()
 		bytecode = bytecode[4:]
 		return bytecode
+
+class Contents(BW_Object):
+	def add_child(self, classnum):
+		from src.lib import atoms
+		child = atoms.Atom(classnum)
+		self.get(173).append(child)
+		return child
+
+	def add_panel(self, classnum):
+		panel = Panel(classnum)
+		self.get(6213).append(panel)
+		return panel
+
+class Panel(BW_Object):
+	def set_root_item(self, classnum):
+		from src.lib import panel_items
+		root_item = panel_items.Panel_Item(classnum)
+		self.set("root_item(6212)", root_item)
+		return root_item
+
+	def set_WH(self, w, h):
+		self.set(6232, w).set(6233, h)
+		return self

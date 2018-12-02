@@ -16,9 +16,9 @@ def get_default(classnum):
 	elif integer == 8:
 		return ''
 	elif integer == 9:
-		from src.lib import atoms
+		from src.lib import objects
 		if classnum in defaults.atom:
-			return atoms.Atom(defaults.atom[classnum])
+			return objects.BW_Object(defaults.atom[classnum])
 		else:
 			return None
 	elif integer == 0x12:

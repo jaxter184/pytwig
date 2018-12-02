@@ -8,15 +8,22 @@ import uuid
 import struct
 
 class Panel_Item(objects.BW_Object):
-	# removed: def add_field(self, field, value): # wow I was dumb a year ago. This is totally unnecessary.
+	def __init__(self, classnum = None, fields = None):
+		super().__init__(classnum, fields)
+		self.data["layout_settings(6226)"] = objects.BW_Object("float_core.grid_panel_item_layout_settings(1694)")
 
 	def create_item(self, classnum):
-		if self.classnum == 1680:
-			self.set(6212, Panel_Item(classnum))
-			return self.get(6212)
-		else:
-			self.get(6221).append(Panel_Item(classnum))
-			return self.get(6221)[-1]
+		item = Panel_Item(classnum)
+		self.get(6221).append(item)
+		return self.get(6221)[-1]
+
+	def set_XY(self, x, y):
+		self.get(6226).set(6215, x).set(6216, y)
+		return self
+
+	def set_WH(self, w, h):
+		self.get(6226).set(6217, w).set(6218, h)
+		return self
 
 	def serialize(self):
 		return json.dumps(self.data, indent = 2)

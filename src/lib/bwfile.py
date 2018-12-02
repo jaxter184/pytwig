@@ -2,23 +2,7 @@
 from src.lib import objects
 from collections import OrderedDict
 
-BW_VERSION = '2.4.2'
 
-BW_FILE_META_TEMPLATE = [
-	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
-	'revision_id', 'revision_no', 'tags', 'type',]
-
-BW_DEVICE_META_TEMPLATE = [
-	'additional_device_types', 'device_description', 'device_type', 'device_uuid',
-	# TODO: find out what these do
-	'has_audio_input', 'has_audio_output', 'has_note_input', 'has_note_output',
-	'suggest_for_audio_input', 'suggest_for_note_input',]
-
-BW_MODULATOR_META_TEMPLATE = [
-	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
-
-BW_PRESET_TEMPLATE = [
-	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
 
 class BW_File:
 	contents_obj_list = []
@@ -31,7 +15,6 @@ class BW_File:
 			return
 		self.header = 'BtWgXXXXX'
 		self.meta = objects.BW_Meta(type)
-		self.meta.data['application_version_name'] = BW_VERSION
 		self.meta.data = OrderedDict(sorted(self.meta.data.items(), key=lambda t: t[0])) # Sorts the dict. CLEAN: maybe put this somewhere else?
 		self.contents = None
 
@@ -66,16 +49,18 @@ class BW_File:
 	def serialize(self):
 		global g_serialize_object_id
 		g_serialize_object_id = 0
-		output = self.header
+		output = self.header[:11] + '1' + self.header[12:]
 		output += self.meta.serialize()
 		output += '\n'
 		output += self.contents.serialize()
 		return output
 
 	def encode(self):
-		output = bytearray(self.header, "utf-8")
+		output = bytearray(self.header[:11] + '2' + self.header[12:], "utf-8")
+		objects.g_serialize_object_id = 1
 		output += self.meta.encode()
 		output += bytearray('\n', "utf-8")
+		objects.g_serialize_object_id = 1
 		output += self.contents.encode()
 		return output
 
