@@ -515,6 +515,14 @@ class Contents(BW_Object):
 		self.get(6213).append(panel)
 		return panel
 
+	def add_proxy(self, classnum):
+		from src.lib import atoms
+		if classnum != 50:
+			raise TypeError()
+		proxy = atoms.Proxy_Port(50)
+		self.get(178).append(proxy)
+		return proxy
+
 class Panel(BW_Object):
 	def set_root_item(self, classnum):
 		from src.lib import panel_items

@@ -78,43 +78,6 @@ class Proxy_Port(Atom):
 		self.set(301, port)
 		return self
 
-class AbstractValue(Atom):
 
-	def __init__(self, name, default = None, tooltip = '', label = ''):
-		self.data = OrderedDict([
-			('settings', Settings()),
-			('channel_count', 0),
-			('oversampling', 0),
-			('name', name),
-			('label', label),
-			('tooltip_text', tooltip),
-			('preset_identifier', name.upper()),
-			('modulations_to_ignore', 'MATH'),
-			('value_type', None),
-			('value', default)
-		])
-
-class IndexedValue(AbstractValue):
-
-	classname = 'float_core.indexed_value_atom'
-
-	def __init__(self, name, default = 0, tooltip = '', label = '',
-			items = []):
-		super().__init__(name, default, tooltip, label)
-		self.data['value_type'] = Atom('float_core.indexed_value_type', OrderedDict([
-			('items', []),
-			('edit_style', 0),
-			('columns', 0),
-			('default_value', default)
-		]))
-		for x in items:
-			self.add_item(x)
-
-	def add_item(self, name):
-		items = self.data['value_type'].data['items']
-		seq_id = len(items)
-		items.append(Atom('float_core.indexed_value_item', OrderedDict([
-			('id', seq_id),
-			('name', name)
-		])))
-		return self
+#class Value_Atom(Atom):
+#class Value_Type(objects.BW_Object):
