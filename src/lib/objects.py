@@ -4,6 +4,7 @@
 from collections import OrderedDict
 from src.lib.util import *
 from src.lib.luts import typeLists, names
+from src.lib import color
 import uuid
 import struct
 
@@ -22,31 +23,59 @@ class BW_Serializer(json.JSONEncoder):
 				return OrderedDict([("class",obj.classname), ("object_id",serialized.index(obj)), ("data",obj.data)])
 		elif isinstance(obj, bytes):
 			return "TODO: replace with UUID interpreter"
-		elif isinstance(obj, Color):
+		elif isinstance(obj, color.Color):
 			return obj.__dict__
-		elif isinstance(obj, List):
-			print(obj)
-			print("debug2")
-			json.JSONEncoder.default(self,obj)
 		else:
+			print(type(obj))
 			json.JSONEncoder.default(self,obj)
 
-class Abstract_Serializable_BW_Object:
-	"""Abstract object for BW_Object and Color to inherit from.
+class BW_Object():
+	"""Anything that can be in the device contents, including atoms, types, and panels. Any object with the form {class, object_id, data}.
 
-	Object containing functions for printing, setting, getting and serializing Bitwig objects.
+	BW_Objects can be printed and serialized, and their data can be set or get (got?).
 	"""
-	def __init__(self):
-		raise Error("please dont initialize me")
+	classname = ""
+	data = {}
+	decode_method_raw = False
+	def __init__(self, classnum = None, fields = None,):
+		self.data = OrderedDict()
+
+		if classnum == None:
+			return
+		if isinstance(classnum, int):
+			if classnum in names.class_names:
+				self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+			else:
+				self.classname = "missing class (" + str(classnum) + ')'
+			self.classnum = classnum
+		elif isinstance(classnum, str):
+			from src.lib import util
+			self.classname = classnum
+			self.classnum = util.extract_num(classnum)
+		if self.classnum in typeLists.class_type_list:
+			for each_field in typeLists.class_type_list[self.classnum]:
+				if each_field in names.field_names:
+					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
+				else:
+					self.classname = "missing field (" + str(each_field) + ')'
+				self.data[fieldname] = typeLists.get_default(each_field)
+		if not fields == None:
+			for each_field in fields:
+				if each_field in self.data:
+					self.data[each_field] = fields[each_field]
 
 	def __repr__(self):
 	    return self.__str__()
+
+	def __str__(self):
+		return str(self.classname)
 
 	def set(self, key, val):
 		"""Sets a field in the object's data dictionary
 
 		Args:
-			key (str): The key of the data field that is being set. (int) inputs are automatically converted to their strings.
+			key (str): The key of the data field that is being set.
+			key (int): The classnum to be converted to the key of the data field that is being set.
 			val (any): The data value that the field is being set to.
 
 		Returns:
@@ -80,92 +109,30 @@ class Abstract_Serializable_BW_Object:
 		Usually used to get a Bitwig object nested inside the self object's data.
 
 		Args:
-			key (str): The key of the data field that the data is fetched from. (int) inputs are automatically converted to their strings.
+			key (str): The key of the data field that the data is fetched from.
+			key (int): The classnum to be converted to the key of the data field that the data is fetched from.
 
 		Returns:
-			Any: Returns the value inside the object's data dictionary, which can be any encodeable/decodable value.
+			Any: Returns the value inside the object's data dictionary, which can be any encodeable/decodable value
 		"""
 		if isinstance(key, int):
 			key = "{}({})".format(names.field_names[key], key)
 		return self.data[key]
 
-	def encode(self):
-		raise Error()
-
-	def serialize(self):
-		"""Serializes the object into a json format.
-
-		Returns:
-			Any: Returns a string containing the json data representing the object.
-		"""
-		return json.dumps(self, cls=BW_Serializer,indent=2)
-
-class Color(Abstract_Serializable_BW_Object):
-	def __init__(self, rd, gr, bl, al):
-		self.type = 'color'
-		self.data = [rd, gr, bl, al]
-		if (al == 1.0):
-			self.data = self.data[:-1]
-
-	def __str__(self):
-		return "Color: " + str(self.data)
-
-	def encode(self):
-		output = bytearray(b'')
-		count = 0
-		for item in self.data:
-			flVal = struct.unpack('>I', struct.pack('>f', item))[0]
-			output += hexPad(flVal,8)
-			count += 1
-		if count == 3:
-			output += struct.pack('>f', 1.0)
-		return output
-
-# BW Objects are anything that can be in the device contents, including types and panels
-# Anything object the form {class, object_id, data}
-class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to simplify type checking
-	decode_method_raw = False
-	def __init__(self, classnum = None, fields = None,):
-		self.data = OrderedDict()
-
-		if classnum == None:
-			return
-		if isinstance(classnum, int):
-			if classnum in names.class_names:
-				self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
-			else:
-				self.classname = "missing class (" + str(classnum) + ')'
-			self.classnum = classnum
-		elif isinstance(classnum, str):
-			from src.lib import util
-			self.classname = classnum
-			self.classnum = util.extract_num(classnum)
-		if self.classnum in typeLists.class_type_list:
-			for each_field in typeLists.class_type_list[self.classnum]:
-				if each_field in names.field_names:
-					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-				else:
-					self.classname = "missing field (" + str(each_field) + ')'
-				self.data[fieldname] = typeLists.get_default(each_field)
-		if not fields == None:
-			for each_field in fields:
-				if each_field in self.data:
-					self.data[each_field] = fields[each_field]
-
-	def __str__(self):
-		return str(self.classname)
-
-	# removed: def stringify(self, tabs = 0):
-
-	def listFields(self):
-		output = ''
-		output += "class : " + str(self.classname) + '\n'
-		for each_field in self.data:
-			output += each_field + '\n'
-		return output
-
 	# Decoding bytecode
 	def parse_field(self, bytecode, obj_list, string_mode = 0):
+		"""Helper function for reading a field's value from Bitwig bytecode.
+
+		Args:
+			bytecode (bytearray): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
+			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
+			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
+			string_mode (int): Determines which string reading mode will be followed. 0 = Prepended length, 1 = Null-terminated.
+
+		Returns:
+			bytearray: Passes back the remaining bytecode to be parsed
+			Any: The input bytecode with the encoded field appended to the end
+		"""
 		parse_type = bytecode[0]
 		bytecode = bytecode[1:]
 		if parse_type == 0x01:	#8 bit int
@@ -264,7 +231,7 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 			bytecode = bytecode[16:]
 		elif parse_type == 0x16:	#color
 			flVals = struct.unpack('>ffff', bytecode[:16])
-			val = Color(*flVals)
+			val = color.Color(*flVals)
 			bytecode = bytecode[16:]
 		elif parse_type == 0x17:	#float array (never been used before)		#TODO: implement this
 			arr_len = btoi(bytecode[:4])
@@ -296,11 +263,19 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 			raise TypeError('unknown type ' + str(parse_type))
 		return bytecode, val
 
-	# Encoding to bytecode
 	def encode_field(self, output, field, obj_list):
+		"""Helper function for recursively serializing Bitwig objects into Bitwig bytecode.
+
+		Args:
+			output (bytearray): Current bytecode to suffix the encoded field onto and output. TODO: consider turning this into its own object so it only has to be passed in and not returned.
+			field (str): Key of the field of this object's data dictionary to be encoded into Bitwig bytecode
+
+		Returns:
+			bytearray: The input bytecode with the encoded field appended to the end.
+		"""
 		value = self.data[field]
 		fieldNum = extract_num(field)
-		if value==None:
+		if value == None:
 			output += bytearray.fromhex('0a')
 		else:
 			if fieldNum in typeLists.field_type_list:
@@ -404,10 +379,20 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 					else:
 						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
 			else:
-				print("missing type in typeLists.fieldList: " + str(fieldNum))
+				print("missing type in typeLists.fieldList: {}".format(fieldNum))
 		return output
 
 	def decode_fields(self, bytecode, obj_list):
+		"""Helper function for iteratively reading all of an object's fields from Bitwig bytecode
+
+		Args:
+			bytecode (bytearray): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
+			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
+			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
+
+		Returns:
+			bytearray: Passes back the remaining bytecode to be parsed
+		"""
 		field_num = btoi(bytecode[:4])
 		bytecode = bytecode[4:]
 		while (field_num):
@@ -422,15 +407,13 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 			bytecode = bytecode[4:]
 		return bytecode
 
-	def decode_object(self, bytecode, obj_list):
+	def decode_object(self, bytecode, obj_list): # TODO: merge with decode
 		from src.lib import atoms
 		from src.lib.luts import names
 		obj_num = btoi(bytecode[:4])
 		bytecode = bytecode[4:]
 		if obj_num == 0x1: #object references
-			#print("untested section, stuff may go wrong")
 			obj_num = btoi(bytecode[:4])
-			#print(obj_num)
 			bytecode = bytecode[4:]
 			return bytecode, obj_list[obj_num]
 		else:
@@ -451,6 +434,16 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 				return bytecode, obj
 
 	def decode(self, bytecode, obj_list, raw = False):
+		"""Helper function for recursively reading Bitwig objects from Bitwig bytecode.
+
+		Args:
+			bytecode (bytearray): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
+			obj_list (list): List of objects that are currently in the file. Used for parsing references.
+			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables.
+
+		Returns:
+			bytearray: Passes back the remaining bytecode to be parsed
+		"""
 		if raw:
 			self.decode_method_raw = True
 		from src.lib import atoms
@@ -465,9 +458,7 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 			self.classnum = obj_num
 			obj_list.append(self)
 			bytecode = self.decode_fields(bytecode, obj_list)
-			#print(obj_list)
 			return bytecode
-		#bytecode = self.contents.decode_object(bytecode) # I think this does nothing
 
 	def encode(self, obj_list):
 		obj_list.append(self)
@@ -479,6 +470,25 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 		output += bytearray.fromhex('00000000')
 		return output
 
+	def serialize(self):
+		"""Serializes the object into a json format.
+
+		Returns:
+			Any: Returns a string containing the json data representing the object.
+		"""
+		return json.dumps(self, cls=BW_Serializer,indent=2)
+
+	def debug_list_fields(self):
+		"""Debug function for listing all the data fields of a Bitwig object
+		"""
+		output = ''
+		output += "class : " + str(self.classname) + '\n'
+		for each_field in self.data:
+			output += each_field + '\n'
+		return output
+
+
+# Templates for meta data in the case that the file is created from scratch.
 BW_VERSION = '2.4.2'
 BW_FILE_META_TEMPLATE = [
 	'application_version_name', 'branch', 'comment', 'creator', 'device_category', 'device_id' , 'device_name',
@@ -530,74 +540,6 @@ class BW_Meta(BW_Object):
 		output += bytearray.fromhex('00000000')
 		return output
 
-	# Decoding bytecode
-	@staticmethod
-	def parse_field(bytecode, string_mode = 0):
-		parse_type = bytecode[0]
-		bytecode = bytecode[1:]
-		if parse_type == 0x01:	#8 bit int
-			val = bytecode[0]
-			if val & 0x80:
-				val -= 0x100
-			return val, bytecode[1:]
-		elif parse_type == 0x02:	#16 bit int
-			val = btoi(bytecode[:2])
-			if val & 0x8000:
-				val -= 0x10000
-			return val, bytecode[2:]
-		elif parse_type == 0x03:	#32 bit int
-			val = btoi(bytecode[:4])
-			if val & 0x80000000:
-				val -= 0x100000000
-			return val, bytecode[4:]
-		elif parse_type == 0x05:	#boolean
-			return bool(bytecode[0]), bytecode[1:]
-		elif parse_type == 0x06:	#float
-			val = struct.unpack('>f', bytecode[:4])[0]
-			return val, bytecode[4:]
-		elif parse_type == 0x07:	#double
-			val = struct.unpack('>d', bytecode[:8])[0]
-			return val, bytecode[8:]
-		elif parse_type == 0x08:	#string
-			if string_mode == 0:
-				stringLength = btoi(bytecode[:4])
-				bytecode = bytecode[4:]
-				val = ''
-				char_enc = False #false:utf-8, true:utf-16
-				if (stringLength & 0x80000000):
-					stringLength &= 0x7fffffff
-					char_enc = True
-				if (stringLength > 100000):
-					raise TypeError('String is too long')
-				else:
-					val = bytecode[:stringLength*(2 if char_enc else 1)].decode('utf-16' if char_enc else 'utf-8')
-				return val, bytecode[stringLength*(2 if char_enc else 1):]
-			elif string_mode == 1:
-				while (bytecode[0]) != 0x00:
-					val += chr(bytecode[0])
-					bytecode = bytecode[1:]
-				return val, bytecode[1:]
-		elif parse_type == 0x0a:	#null
-			return None, bytecode
-		elif parse_type == 0x15:	#UUID
-			val = str(uuid.UUID(bytes=bytecode[:16]))
-			return val, bytecode[16:]
-		elif parse_type == 0x17:	#float array (never been used before)		#TODO: implement this
-			arr_len = btoi(bytecode[:4])
-			return val, bytecode[:4+arr_len*4]
-		elif parse_type == 0x19: #string array
-			arr_len = btoi(bytecode[:4])
-			bytecode = bytecode[4:]
-			arr = []
-			for i in range(arr_len):
-				str_len = btoi(bytecode[:4])
-				bytecode = bytecode[4:]
-				arr.append(bytecode[:str_len].decode('utf-8'))
-				bytecode = bytecode[str_len:]
-			return arr, bytecode
-		else:
-			raise TypeError('unknown type ' + str(parse_type))
-
 	def decode(self, bytecode):
 		if bytecode[:4] != bytearray([0,0,0,0x04]):
 			raise TypeError()
@@ -613,7 +555,7 @@ class BW_Meta(BW_Object):
 				bytecode = bytecode[4:]
 				key = bytecode[:key_len].decode('utf-8')
 				bytecode = bytecode[key_len:]
-				(value, bytecode) = BW_Meta.parse_field(bytecode) #TODO: Fix order of parse_field output
+				(value, bytecode) = self.parse_field(bytecode, None) #TODO: Fix order of parse_field output
 				self.data[key] = value
 			elif btoi(bytecode[:4]) == 0x4: #object
 				raise TypeError()
@@ -628,7 +570,6 @@ class BW_Meta(BW_Object):
 		return bytecode
 
 class Contents(BW_Object):
-
 	def add_child(self, classnum):
 		from src.lib import atoms
 		child = atoms.Atom(classnum)
@@ -647,7 +588,6 @@ class Contents(BW_Object):
 		proxy = atoms.Proxy_Port(50)
 		self.get(178).append(proxy)
 		return proxy
-
 
 class Panel(BW_Object):
 	def set_root_item(self, classnum):

@@ -19,15 +19,31 @@ class BW_File:
 		return "File: " +  self.meta.data['device_name']
 
 	def set_header(self, value):
+		"""Sets self.header, checking for validity before doing so.
+
+		Args:
+			value (str): Header string to be checked and written
+
+		Returns:
+			BW_File: self is returned so the function can be daisy-chained
+		"""
 		if not (value[:4] == 'BtWg' and value[4:].isdigit() and len(value) == 40):
-			raise TypeError('"' + value + '" is not a valid header')
+			raise TypeError('"{}" is not a valid header'.format(value))
 		else:
 			self.header = value
 		return self
 
 	def set_contents(self, value):
+		"""Sets self.contents, checking very superficially for validity before doing so.
+
+		Args:
+			value (BW_Object): Bitwig object to be set as this object's contents
+
+		Returns:
+			BW_File: self is returned so the function can be daisy-chained
+		"""
 		if not isinstance(value, BW_Object):
-			raise TypeError('"' + str(value) + '" is not an atom')
+			raise TypeError('"{}" is not an atom'.format(value))
 		else:
 			self.contents = value
 		return self

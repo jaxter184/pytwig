@@ -28,8 +28,8 @@ def get_default(classnum):
 	elif integer == 0x15:
 		return uuid.UUID('00000000-0000-0000-0000-000000000000')
 	elif integer == 0x16:
-		from src.lib import objects
-		return objects.Color(0.5,0.5,0.5,1)
+		from src.lib import color
+		return color.Color(0.5,0.5,0.5,1)
 	elif integer == 0x17:
 		pass #float list
 	elif integer == 0x19: #string array
