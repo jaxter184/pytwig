@@ -5,13 +5,12 @@ from collections import OrderedDict
 
 
 class BW_File:
-	contents_obj_list = []
 
 	def __init__(self, type = None):
 		if type == None:
 			self.header = ''
 			self.meta = objects.BW_Meta(None)
-			self.contents = None
+			self.contents = objects.Contents(None)
 			return
 		self.header = 'BtWgXXXXX'
 		self.meta = objects.BW_Meta(type)
@@ -47,24 +46,24 @@ class BW_File:
 		return self
 
 	def serialize(self):
-		global g_serialize_object_id
-		g_serialize_object_id = 0
+		objects.serialized = [None]
 		output = self.header[:11] + '1' + self.header[12:]
 		output += self.meta.serialize()
 		output += '\n'
+		objects.serialized = [None]
 		output += self.contents.serialize()
 		return output
 
 	def encode(self):
 		output = bytearray(self.header[:11] + '2' + self.header[12:], "utf-8")
-		objects.g_serialize_object_id = 1
 		output += self.meta.encode()
 		output += bytearray('\n', "utf-8")
-		objects.g_serialize_object_id = 1
-		output += self.contents.encode()
+		obj_list = [None]
+		output += self.contents.encode(obj_list)
 		return output
 
 	def decode(self, bytecode):
+		obj_list = [None]
 		self.header = str(bytecode[:40], "utf-8")
 		if self.header[:4] == 'BtWg' and int(self.header[4:40], 16):
 			if self.header[11] == '2':
@@ -72,11 +71,11 @@ class BW_File:
 				while bytecode[0] == 0x20:
 					bytecode = bytecode[1:]
 				bytecode = bytecode[1:]
-				(self.contents, bytecode) = objects.Abstract_Serializable_BW_Object.decode_object(bytecode)
+				bytecode = self.contents.decode(bytecode, obj_list)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
 			else:
-				raise TypeError('"' + self.header + '" is not a valid header')
+				raise TypeError('"' + self.header + '" is not a valid type')
 		else:
 			raise TypeError('"' + self.header + '" is not a valid header')
 
@@ -90,4 +89,4 @@ class BW_File:
 
 	def read(self, path):
 		from src.lib import fs
-		self.decode(fs.read_binary('hidden/Chain.bwdevice'))
+		self.decode(fs.read_binary(path))

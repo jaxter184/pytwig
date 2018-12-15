@@ -7,7 +7,7 @@ FROM_SCRATCH = False
 if __name__ == "__main__":
 	if not FROM_SCRATCH:
 		test = bwfile.BW_File()
-		test.read('inputs/Chain.bwdevice')
+		test.read('input/Chain.bwdevice')
 	else:
 		test = bwfile.BW_File('application/bitwig-device')
 		test.meta.set_multi({
@@ -38,7 +38,7 @@ if __name__ == "__main__":
 		nest_slot = mult_atom.create_inport(587, True)
 		nest_slot.set(836, "DEVICE_CHAIN").set(2434, True).set(2435, True).set(5769, True).set(835, "CHAIN").set(2270, True).set(5361, True)
 		nest_slot.get(6194).get(612).set(17, 12).set(18, 66)
-		nest_slot.create_inport(objects.Reference(pxy_audio_in), True)
+		nest_slot.create_inport(pxy_audio_in, True)
 		pxy_note_in = nest_slot.create_inport(154, True).set_port("note").set_XY(150, 0)
 
 		gain_val = mult_atom.create_inport(289, True).set_XY(66, 50).set_multi({
@@ -75,11 +75,11 @@ if __name__ == "__main__":
 		"allow_automation_curves(4434)": True,
 		}))
 
-		test.contents.get(173).append(objects.Reference(nest_slot))
-		test.contents.get(173).append(objects.Reference(comp_atom))
-		test.contents.get(173).append(objects.Reference(mult_atom))
-		test.contents.get(173).append(objects.Reference(gain_val))
-		test.contents.get(173).append(objects.Reference(mix_val))
+		test.contents.get(173).append(nest_slot)
+		test.contents.get(173).append(comp_atom)
+		test.contents.get(173).append(mult_atom)
+		test.contents.get(173).append(gain_val)
+		test.contents.get(173).append(mix_val)
 
 		# Panels
 		panel = test.contents.add_panel(1680).set(6211, "Main").set_WH(11, 53)
@@ -87,7 +87,7 @@ if __name__ == "__main__":
 		"title_color(6522)": 6,
 		"brightness(6245)": 1,
 		})
-		display_panel = root_panel_item.create_item(1704).set_WH(11, 6).set("data_model(6220)", objects.Reference(nest_slot))
+		display_panel = root_panel_item.create_item(1704).set_WH(11, 6).set("data_model(6220)", nest_slot)
 		grid_panel = root_panel_item.create_item(1681).set_WH(11, 46).set_XY(0, 7).set_multi({
 		"is_visible(6309)": True,
 		"is_enabled(6310)": True,
@@ -97,26 +97,27 @@ if __name__ == "__main__":
 		})
 
 		gain_knob = grid_panel.create_item(1687).set_WH(11, 9).set_XY(0, 15).set_multi({
-		"data_model(6220)": objects.Reference(gain_val),
+		"data_model(6220)": gain_val,
 		"title(6241)": "Gain",
 		"label_color(7056)": 999,
 		"pie_color(7057)": 999,
 		})
 		mix_knob = grid_panel.create_item(1687).set_WH(11, 9).set_XY(0, 33).set_multi({
-		"data_model(6220)": objects.Reference(mix_val),
+		"data_model(6220)": mix_val,
 		"title(6241)": "Mix",
 		"label_color(7056)": 999,
 		"pie_color(7057)": 999,
 		})
 
 		# Proxy ports
-		test.contents.get(177).append(objects.Reference(pxy_audio_in))
-		test.contents.get(177).append(objects.Reference(pxy_note_in))
+		test.contents.get(177).append(pxy_audio_in)
+		test.contents.get(177).append(pxy_note_in)
 		pxy_audio_out = test.contents.add_proxy(50).set_XY(0,380)
-		pxy_audio_out.create_inport(objects.Reference(mix_atom), True)
+		pxy_audio_out.create_inport(mix_atom, True)
 		pxy_audio_out.set_port('audio')
 		pxy_note_out = test.contents.add_proxy(50).set_XY(100,500)
-		pxy_note_out.create_inport(objects.Reference(nest_slot), True).set(249, 1)
+		pxy_note_out.create_inport(nest_slot, True)
+		pxy_note_out.get(6194).get(614)[-1].set(249, 1)
 		pxy_note_out.get(6194).set("is_polyphonic(615)", True)
 		pxy_note_out.set_port('note')
 
@@ -135,5 +136,9 @@ if __name__ == "__main__":
 		"category(390)": "Container",
 		})
 
+	if FROM_SCRATCH:
 		test.export("output/Chain Clone Json.bwdevice")
 		test.write("output/Chain Clone.bwdevice")
+	else:
+		test.export("output/Chain Dup Json.bwdevice")
+		test.write("output/Chain Dup.bwdevice")

@@ -36,13 +36,7 @@ class Atom(objects.BW_Object):
 				return self.get(6194).get(614)[-1].get(248)
 			except:
 				raise KeyError("There was an issue adding an inport. Perhaps this isn't an atom?")
-		elif isinstance(classnum, objects.Reference):
-			self.get(6194).get(614).append(Atom(105))
-			self.get(6194).get(614)[-1].set(248, classnum)
-			if quality:
-				self.get(6194).get(614)[-1].set(1943, True)
-			return self.get(6194).get(614)[-1].get(248)
-		elif isinstance(classnum, atoms.Atom):
+		elif isinstance(classnum, Atom):
 			self.get(6194).get(614).append(Atom(105))
 			self.get(6194).get(614)[-1].set(248, classnum)
 			if quality:
@@ -61,15 +55,16 @@ class Proxy_Port(Atom):
 			port = objects.BW_Object("float_core.audio_port(242)")
 			if self.classnum == 154:
 				port.set_multi({499: " Audio out (PARENT)", 372: 3,})
-			elif self.classnum == 60:
+			elif self.classnum == 50:
 				port.set_multi({499: " Audio in (PARENT)", 372: 3, 500: True,})
 			else:
+				print(self.classnum)
 				raise Error()
 		elif type == 'note':
 			port = objects.BW_Object("float_core.note_port(61)")
 			if self.classnum == 154:
 				port.set_multi({499: " Note out",})
-			elif self.classnum == 60:
+			elif self.classnum == 50:
 				port.set_multi({499: " Note in", 500: True,})
 			else:
 				raise Error()
