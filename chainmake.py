@@ -2,7 +2,7 @@ from src.lib import bwfile, objects, atoms
 
 # This script generates a Chain device
 
-FROM_SCRATCH = False
+FROM_SCRATCH = True
 
 if __name__ == "__main__":
 	if not FROM_SCRATCH:

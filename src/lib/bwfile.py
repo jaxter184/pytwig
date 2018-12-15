@@ -3,9 +3,7 @@ from src.lib import objects
 from collections import OrderedDict
 
 
-
 class BW_File:
-
 	def __init__(self, type = None):
 		if type == None:
 			self.header = ''
@@ -62,7 +60,7 @@ class BW_File:
 		output += self.contents.encode(obj_list)
 		return output
 
-	def decode(self, bytecode):
+	def decode(self, bytecode, raw = False):
 		obj_list = [None]
 		self.header = str(bytecode[:40], "utf-8")
 		if self.header[:4] == 'BtWg' and int(self.header[4:40], 16):
@@ -71,7 +69,9 @@ class BW_File:
 				while bytecode[0] == 0x20:
 					bytecode = bytecode[1:]
 				bytecode = bytecode[1:]
-				bytecode = self.contents.decode(bytecode, obj_list)
+				if raw:
+					self.contents = objects.BW_Object()
+				bytecode = self.contents.decode(bytecode, obj_list, raw = raw)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
 			else:
@@ -87,6 +87,6 @@ class BW_File:
 		from src.lib import fs
 		fs.write(path, self.serialize().replace('":', '" :'))
 
-	def read(self, path):
+	def read(self, path, raw = False):
 		from src.lib import fs
-		self.decode(fs.read_binary(path))
+		self.decode(fs.read_binary(path), raw = raw)

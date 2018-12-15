@@ -17,7 +17,7 @@ class BW_Serializer(json.JSONEncoder):
 			if obj in serialized:
 				return OrderedDict([("object_ref",serialized.index(obj))])
 			else:
-				print(obj)
+				#print(obj)
 				serialized.append(obj)
 				return OrderedDict([("class",obj.classname), ("object_id",serialized.index(obj)), ("data",obj.data)])
 		elif isinstance(obj, bytes):
@@ -32,7 +32,10 @@ class BW_Serializer(json.JSONEncoder):
 			json.JSONEncoder.default(self,obj)
 
 class Abstract_Serializable_BW_Object:
+	"""Abstract object for BW_Object and Color to inherit from.
 
+	Object containing functions for printing, setting, getting and serializing Bitwig objects.
+	"""
 	def __init__(self):
 		raise Error("please dont initialize me")
 
@@ -40,6 +43,15 @@ class Abstract_Serializable_BW_Object:
 	    return self.__str__()
 
 	def set(self, key, val):
+		"""Sets a field in the object's data dictionary
+
+		Args:
+			key (str): The key of the data field that is being set. (int) inputs are automatically converted to their strings.
+			val (any): The data value that the field is being set to.
+
+		Returns:
+			Abstract_Serializable_BW_Object: self is returned so the function can be daisy-chained
+		"""
 		if isinstance(key, int):
 			key = names.field_names[key] + '(' + str(key) + ')'
 		if not key in self.data:
@@ -48,22 +60,44 @@ class Abstract_Serializable_BW_Object:
 		return self
 
 	def set_multi(self, dict):
+		"""Sets multiple fields in the object's data dictionary.
+
+		Calls the set function once for each key-value pair input.
+
+		Args:
+			dict (dict): The set of key-value pairs that are being set
+
+		Returns:
+			Abstract_Serializable_BW_Object: self is returned so the function can be daisy-chained
+		"""
 		for each_key in dict:
 			self.set(each_key, dict[each_key])
 		return self
 
 	def get(self, key):
+		"""Gets the value at a data field in the object's data dictionary.
+
+		Usually used to get a Bitwig object nested inside the self object's data.
+
+		Args:
+			key (str): The key of the data field that the data is fetched from. (int) inputs are automatically converted to their strings.
+
+		Returns:
+			Any: Returns the value inside the object's data dictionary, which can be any encodeable/decodable value.
+		"""
 		if isinstance(key, int):
-			#if not key in names.field_names # KeyError detection is automatic
-			key = names.field_names[key] + '(' + str(key) + ')'
-		#if not key in self.data # KeyError detection is automatic
+			key = "{}({})".format(names.field_names[key], key)
 		return self.data[key]
 
 	def encode(self):
 		raise Error()
 
-	# Serializing
 	def serialize(self):
+		"""Serializes the object into a json format.
+
+		Returns:
+			Any: Returns a string containing the json data representing the object.
+		"""
 		return json.dumps(self, cls=BW_Serializer,indent=2)
 
 class Color(Abstract_Serializable_BW_Object):
@@ -90,7 +124,7 @@ class Color(Abstract_Serializable_BW_Object):
 # BW Objects are anything that can be in the device contents, including types and panels
 # Anything object the form {class, object_id, data}
 class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to simplify type checking
-
+	decode_method_raw = False
 	def __init__(self, classnum = None, fields = None,):
 		self.data = OrderedDict()
 
@@ -373,7 +407,52 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 				print("missing type in typeLists.fieldList: " + str(fieldNum))
 		return output
 
-	def decode(self, bytecode, obj_list):
+	def decode_fields(self, bytecode, obj_list):
+		field_num = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		while (field_num):
+			if field_num in names.field_names:
+				field_name = names.field_names[field_num] +  '(' + str(field_num) + ')'
+			else:
+				field_name = "missing_field" +  '(' + str(field_num) + ')'
+				print("missing field: " + str(field_num))
+			(bytecode, value,) = self.parse_field(bytecode, obj_list)
+			self.data[field_name] = value
+			field_num = btoi(bytecode[:4])
+			bytecode = bytecode[4:]
+		return bytecode
+
+	def decode_object(self, bytecode, obj_list):
+		from src.lib import atoms
+		from src.lib.luts import names
+		obj_num = btoi(bytecode[:4])
+		bytecode = bytecode[4:]
+		if obj_num == 0x1: #object references
+			#print("untested section, stuff may go wrong")
+			obj_num = btoi(bytecode[:4])
+			#print(obj_num)
+			bytecode = bytecode[4:]
+			return bytecode, obj_list[obj_num]
+		else:
+			if self.decode_method_raw:
+				obj = BW_Object()
+				obj.data = OrderedDict()
+				obj.classname = names.class_names[obj_num] + '(' + str(obj_num) + ')'
+				obj.classnum = obj_num
+				obj_list.append(obj)
+				bytecode = obj.decode_fields(bytecode, obj_list)
+				#print(obj_list)
+				return bytecode, obj
+			else:
+				obj = BW_Object(obj_num)
+				obj_list.append(obj)
+				bytecode = obj.decode_fields(bytecode, obj_list)
+				#print(obj_list)
+				return bytecode, obj
+
+	def decode(self, bytecode, obj_list, raw = False):
+		if raw:
+			self.decode_method_raw = True
 		from src.lib import atoms
 		from src.lib.luts import names
 		obj_num = btoi(bytecode[:4])
@@ -385,10 +464,10 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 			self.classname = names.class_names[obj_num] + '(' + str(obj_num) + ')'
 			self.classnum = obj_num
 			obj_list.append(self)
-			bytecode = self.decode_fields(bytecode, self, obj_list)
+			bytecode = self.decode_fields(bytecode, obj_list)
 			#print(obj_list)
 			return bytecode
-		bytecode = self.contents.decode_object(bytecode)
+		#bytecode = self.contents.decode_object(bytecode) # I think this does nothing
 
 	def encode(self, obj_list):
 		obj_list.append(self)
@@ -568,39 +647,6 @@ class Contents(BW_Object):
 		proxy = atoms.Proxy_Port(50)
 		self.get(178).append(proxy)
 		return proxy
-
-	def decode_fields(self, bytecode, obj, obj_list): # TODO: make objects decode their own fields
-		field_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
-		while (field_num):
-			if field_num in names.field_names:
-				field_name = names.field_names[field_num] +  '(' + str(field_num) + ')'
-			else:
-				field_name = "missing_field" +  '(' + str(field_num) + ')'
-				print("missing field: " + str(field_num))
-			(bytecode, value,) = self.parse_field(bytecode, obj_list)
-			obj.data[field_name] = value
-			field_num = btoi(bytecode[:4])
-			bytecode = bytecode[4:]
-		return bytecode
-
-	def decode_object(self, bytecode, obj_list):
-		from src.lib import atoms
-		from src.lib.luts import names
-		obj_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
-		if obj_num == 0x1: #object references
-			#print("untested section, stuff may go wrong")
-			obj_num = btoi(bytecode[:4])
-			#print(obj_num)
-			bytecode = bytecode[4:]
-			return bytecode, obj_list[obj_num]
-		else:
-			obj = BW_Object(obj_num)
-			obj_list.append(obj)
-			bytecode = self.decode_fields(bytecode, obj, obj_list)
-			#print(obj_list)
-			return bytecode, obj
 
 
 class Panel(BW_Object):
