@@ -97,15 +97,22 @@ class BW_Object(Abstract_Serializable_BW_Object): # the inheritence is mostly to
 		if classnum == None:
 			return
 		if isinstance(classnum, int):
-			self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+			if classnum in names.class_names:
+				self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+			else:
+				self.classname = "missing class (" + str(classnum) + ')'
 			self.classnum = classnum
 		elif isinstance(classnum, str):
 			from src.lib import util
 			self.classname = classnum
 			self.classnum = util.extract_num(classnum)
-		for each_field in typeLists.class_type_list[self.classnum]:
-			fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-			self.data[fieldname] = typeLists.get_default(each_field)
+		if self.classnum in typeLists.class_type_list:
+			for each_field in typeLists.class_type_list[self.classnum]:
+				if each_field in names.field_names:
+					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
+				else:
+					self.classname = "missing field (" + str(each_field) + ')'
+				self.data[fieldname] = typeLists.get_default(each_field)
 		if not fields == None:
 			for each_field in fields:
 				if each_field in self.data:
@@ -508,7 +515,7 @@ class BW_Meta(BW_Object):
 				bytecode = bytecode[4:]
 				arr.append(bytecode[:str_len].decode('utf-8'))
 				bytecode = bytecode[str_len:]
-			return arr, bytecode[16:]
+			return arr, bytecode
 		else:
 			raise TypeError('unknown type ' + str(parse_type))
 
@@ -535,7 +542,7 @@ class BW_Meta(BW_Object):
 				bytecode = bytecode[4:]
 				name = str(bytecode[:length], 'utf-8')
 				bytecode = bytecode[str_len:]
-				objList.append(Atom(name))
+				#objList.append(Atom(name))
 			else:
 				raise TypeError()
 		bytecode = bytecode[4:]

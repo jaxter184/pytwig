@@ -3,6 +3,7 @@ class_names = {
 	17:"float_core.desktop_settings",
 	40:"float_core.vu_meter_atom",
 	50:"float_core.proxy_out_port_component",
+	51:"device_chain_preset", # manually added
 	61:"float_core.note_port",
 	87:"float_core.boolean_value_atom",
 	105:"float_core.inport_connection",
