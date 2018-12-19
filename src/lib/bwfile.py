@@ -76,7 +76,7 @@ class BW_File:
 		output += self.contents.encode(obj_list)
 		return output
 
-	def decode(self, bytecode, raw = False):
+	def decode(self, bytecode, raw = False, meta_only = False):
 		obj_list = [None]
 		self.header = str(bytecode[:40], "utf-8")
 		if self.header[:4] == 'BtWg' and int(self.header[4:40], 16):
@@ -85,11 +85,18 @@ class BW_File:
 				while bytecode[0] == 0x20:
 					bytecode = bytecode[1:]
 				bytecode = bytecode[1:]
+				if meta_only:
+					return;
 				if raw:
 					self.contents = objects.BW_Object()
 				bytecode = self.contents.decode(bytecode, obj_list, raw = raw)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
+			elif self.header[11] == '0':
+				bytecode = self.meta.decode(bytecode[40:])
+				while bytecode[0] == 0x20:
+					bytecode = bytecode[1:]
+				bytecode = bytecode[1:]
 			else:
 				raise TypeError('"' + self.header + '" is not a valid type')
 		else:
@@ -103,6 +110,6 @@ class BW_File:
 		from src.lib import fs
 		fs.write(path, self.serialize().replace('":', '" :'))
 
-	def read(self, path, raw = False):
+	def read(self, path, raw = False, meta_only = False):
 		from src.lib import fs
-		self.decode(fs.read_binary(path), raw = raw)
+		self.decode(fs.read_binary(path), raw = raw, meta_only = meta_only)

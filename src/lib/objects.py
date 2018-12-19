@@ -3,8 +3,8 @@
 
 from collections import OrderedDict
 from src.lib.util import *
-from src.lib.luts import typeLists, names
-from src.lib import color
+from src.lib.luts import typeLists, names, non_overlap
+from src.lib import color, route
 import uuid
 import struct
 
@@ -21,8 +21,10 @@ class BW_Serializer(json.JSONEncoder):
 				#print(obj)
 				serialized.append(obj)
 				return OrderedDict([("class",obj.classname), ("object_id",serialized.index(obj)), ("data",obj.data)])
-		elif isinstance(obj, bytes):
-			return "TODO: replace with UUID interpreter"
+		elif isinstance(obj, uuid.UUID):
+			return str(obj)
+		elif isinstance(obj, route.Route):
+			return obj.__dict__
 		elif isinstance(obj, color.Color):
 			return obj.__dict__
 		else:
@@ -44,7 +46,11 @@ class BW_Object():
 			return
 		if isinstance(classnum, int):
 			if classnum in names.class_names:
-				self.classname = names.class_names[classnum] + '(' + str(classnum) + ')'
+				self.classname = "{}({})".format(names.class_names[classnum], classnum)
+			elif classnum in non_overlap.potential_names:
+				if input(non_overlap.potential_names[classnum]) == "":
+					self.classname = "{}({})".format(non_overlap.potential_names[classnum], classnum)
+					non_overlap.confirmed_names[classnum] = non_overlap.potential_names[classnum]
 			else:
 				self.classname = "missing class (" + str(classnum) + ')'
 			self.classnum = classnum
@@ -56,9 +62,10 @@ class BW_Object():
 			for each_field in typeLists.class_type_list[self.classnum]:
 				if each_field in names.field_names:
 					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
+					self.data[fieldname] = typeLists.get_default(each_field)
 				else:
-					self.classname = "missing field (" + str(each_field) + ')'
-				self.data[fieldname] = typeLists.get_default(each_field)
+					fieldname = "missing_field({})".format(each_field)
+					self.data[fieldname] = None
 		if not fields == None:
 			for each_field in fields:
 				if each_field in self.data:
@@ -133,9 +140,10 @@ class BW_Object():
 			bytearray: Passes back the remaining bytecode to be parsed
 			Any: The input bytecode with the encoded field appended to the end
 		"""
+		#print(bytecode[:80])
 		parse_type = bytecode[0]
 		bytecode = bytecode[1:]
-		if parse_type == 0x01:	#8 bit int
+		if parse_type == 0x01:		#8 bit int
 			val = bytecode[0]
 			if val & 0x80:
 				val -= 0x100
@@ -185,16 +193,30 @@ class BW_Object():
 			#bytecode = bytecode
 		elif parse_type == 0x0b:	#object reference
 			obj_num = btoi(bytecode[:4])
-			val = obj_list[obj_num]
+			if obj_num >= len(obj_list):
+				print ("this shouldnt happen: reference")
+				val = obj_list[-1]
+			else:
+				val = obj_list[obj_num]
 			bytecode = bytecode[4:]
 		elif parse_type == 0x0d:	#structure									#TODO: implement structure field decoding
-			raise TypeError('parse type 0d not yet implemented')
-			headerLength = btoi(bytecode[:4])
+			#raise TypeError('parse type 0d not yet implemented')
+			#print(bytecode[:180])
+			print("untested section: structure")
+			header_len = btoi(bytecode[:4])
 			bytecode = bytecode[4:]
+			structure_bytecode = bytecode[36:header_len]
+			#print(structure_bytecode)
+			bytecode = bytecode[header_len:]
+			val = 'structure placeholder'
+			#from src.lib import bwfile
+			#val = BW_Meta()
+			#val.decode(structure_bytecode)
+			'''
 			if currentSection == 2:
 				#field_length += 57 #not sure when to put this in
 				val = str(bytecode[:4]) + " - structure placeholder"
-			elif headerLength<54:
+			elif header_len<54:
 				raise TypeError("short header")
 				string_mode = 1
 				val = self.decode_object(bytecode, obj_list)
@@ -202,6 +224,7 @@ class BW_Object():
 			else:
 				val = "structure placeholder"
 			bytecode = bytecode[54:]
+			'''
 		elif parse_type == 0x12:	#object array
 			val = []
 			while (btoi(bytecode[:4]) != 0x3):
@@ -223,9 +246,10 @@ class BW_Object():
 					bytecode = bytecode[4:]
 					string = str(bytecode[:string_len], 'utf-8')
 					bytecode = bytecode[string_len:]
-					(val["data"][string], bytecode) = self.decode_object(bytecode, obj_list)
+					(bytecode, val["data"][string]) = self.decode_object(bytecode, obj_list)
 				else:
 					val["type"] = "unknown"
+			bytecode = bytecode[1:]
 		elif parse_type == 0x15:	#UUID
 			val = str(uuid.UUID(bytes=bytecode[:16]))
 			bytecode = bytecode[16:]
@@ -233,10 +257,14 @@ class BW_Object():
 			flVals = struct.unpack('>ffff', bytecode[:16])
 			val = color.Color(*flVals)
 			bytecode = bytecode[16:]
-		elif parse_type == 0x17:	#float array (never been used before)		#TODO: implement this
+		elif parse_type == 0x17:	#float array (never been used before)		#TODO: test this
 			arr_len = btoi(bytecode[:4])
-			bytecode = bytecode[:4+arr_len*4]
-		elif parse_type == 0x19: #string array
+			bytecode = bytecode[4:]
+			val = []
+			for i in range(arr_len):
+				val.append(struct.unpack('>f', bytecode[:4])[0])
+				bytecode = bytecode[4:]
+		elif parse_type == 0x19:	#string array
 			arr_len = btoi(bytecode[:4])
 			bytecode = bytecode[4:]
 			val = []
@@ -245,13 +273,14 @@ class BW_Object():
 				bytecode = bytecode[4:]
 				val.append(bytecode[:str_len].decode('utf-8'))
 				bytecode = bytecode[str_len:]
-			bytecode = bytecode[16:]
-		elif parse_type == 0x1a: #source?													#not done yet
-			#print("shit,1a ")
+		elif parse_type == 0x1a:	#source?													#not done yet
+			print("untested section: 1a")
+			print(bytecode[:30])
 			num_len = btoi(bytecode[:4])
 			bytecode = bytecode[4:]
 			if num_len == 0x90:
-				return (None, None)
+				print("nonenone")
+				return bytecode, route.Route(None, None)
 			num_val = btoi(bytecode[:4*num_len])
 			bytecode = bytecode[4*num_len:]
 			str_len = btoi(bytecode[:4])
@@ -259,6 +288,12 @@ class BW_Object():
 			str_val = str(bytecode[:str_len].decode("utf-8"))
 			bytecode = bytecode[str_len:]
 			val = route.Route(num_val, str_val)
+			print(val)
+		elif parse_type == 51:
+			print("unparsed section: 3")
+			#print(bytecode[:10])
+			bytecode, val = self.decode_object(b'\x00\x00' + bytecode, obj_list)
+			#print(bytecode[:10])
 		else:
 			raise TypeError('unknown type ' + str(parse_type))
 		return bytecode, val
@@ -373,13 +408,22 @@ class BW_Object():
 						i = i.replace('\\n', '\n')
 						output += hexPad(len(i), 8)
 						output.extend(i.encode('utf-8'))
+				elif typeLists.field_type_list[fieldNum] == 0x1a: #string array
+					output += bytearray.fromhex('1a')
+					if value.data["str"] == None and value.data["num"] == None:
+						output += bytearray.fromhex('00000090')
+						return output
+					output += hexPad(value.data["num"], 4)
+					output += hexPad(len(value.data["str"]), 4)
+					output.extend(value.data["str"].encode('utf-8'))
 				else:
 					if typeLists.field_type_list[fieldNum] == None:
+						print("skipped in binary serialization: {}".format(fieldNum))
 						pass
 					else:
-						print("jaxter stop being a lazy nerd and " + hex(typeLists.fieldList[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
+						print("jaxter stop being a lazy nerd and " + hex(typeLists.field_type_list[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
 			else:
-				print("missing type in typeLists.fieldList: {}".format(fieldNum))
+				print("missing type in typeLists.field_type_list: {}".format(fieldNum))
 		return output
 
 	def decode_fields(self, bytecode, obj_list):
@@ -420,7 +464,11 @@ class BW_Object():
 			if self.decode_method_raw:
 				obj = BW_Object()
 				obj.data = OrderedDict()
-				obj.classname = names.class_names[obj_num] + '(' + str(obj_num) + ')'
+				if obj_num in names.class_names:
+					obj.classname =  "{}({})".format(names.class_names[obj_num],obj_num)
+				else:
+					print("problematic missing class")
+					obj.classname = "missing_class({})".format(obj_num)
 				obj.classnum = obj_num
 				obj_list.append(obj)
 				bytecode = obj.decode_fields(bytecode, obj_list)
@@ -555,7 +603,7 @@ class BW_Meta(BW_Object):
 				bytecode = bytecode[4:]
 				key = bytecode[:key_len].decode('utf-8')
 				bytecode = bytecode[key_len:]
-				(value, bytecode) = self.parse_field(bytecode, None) #TODO: Fix order of parse_field output
+				(bytecode, value) = self.parse_field(bytecode, None)
 				self.data[key] = value
 			elif btoi(bytecode[:4]) == 0x4: #object
 				raise TypeError()

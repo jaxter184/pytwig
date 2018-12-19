@@ -12,17 +12,6 @@ class Atom(objects.BW_Object):
 		self.data["settings(6194)"] = objects.BW_Object("float_core.component_settings(236)")
 		self.data["settings(6194)"].data["desktop_settings(612)"] = objects.BW_Object("float_core.desktop_settings(17)")
 
-	# component, panel, proxy_in, proxy_out
-	'''def add_atom_to_list(self, list_name, atom):
-		if not isinstance(atom, atoms.Atom):
-			raise TypeError("Object " + atom + " is not an atom")
-		if not list_name in self.data:
-			raise TypeError("List " + list_name + " does not exist in " + self.__str__())
-		if not isinstance(self.data[list_name], List): # TODO: check to make sure the list is an atom list using typeLists.field_type_list
-			raise TypeError(list_name + " is not a list of atoms")
-		self.data[list_name].append(atom)
-		return self
-'''
 	def create_inport(self, classnum, quality = False):
 		if isinstance(classnum, int):
 			try:
@@ -72,7 +61,6 @@ class Proxy_Port(Atom):
 			raise Error()
 		self.set(301, port)
 		return self
-
 
 #class Value_Atom(Atom):
 #class Value_Type(objects.BW_Object):

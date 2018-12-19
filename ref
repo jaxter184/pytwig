@@ -1,0 +1,19 @@
+obj, len 9, structure:
+structure_bytecode9D header
+0004 meta {} 0x0a // null terminated string mode
+0x0285 {
+  document_file_path(2771): ''
+  track_group_structure(2770): track_group_structure(643) {
+    title(2769): 'Project'
+    main_track_structures(2766): [
+      instrument_track_structure(648) {
+        title(2769): 'Inst 1'
+      }
+    ]
+    effect_track_structures(2767): [
+    ]
+    master_track_structure(2768): 0x028B {
+      title(2769): 'Master'
+    }
+  }
+}
