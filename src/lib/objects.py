@@ -12,7 +12,12 @@ serialized = []
 import json
 class BW_Serializer(json.JSONEncoder):
 	def default(self, obj):
+		#if str(obj) in ('browsing_session_state_preset(1663)',):
+		#	print("Debug")
+		#	return "poop"
+		#print(obj)
 		#print("debug")
+		from src.lib import bwfile
 		if isinstance(obj, BW_Object):
 			#print(serialized)
 			if obj in serialized:
@@ -27,6 +32,10 @@ class BW_Serializer(json.JSONEncoder):
 			return obj.__dict__
 		elif isinstance(obj, color.Color):
 			return obj.__dict__
+		elif isinstance(obj, bwfile.BW_File):
+			return OrderedDict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
+		elif isinstance(obj, bytes):
+			return str(obj)
 		else:
 			print(type(obj))
 			json.JSONEncoder.default(self,obj)
@@ -46,10 +55,10 @@ class BW_Object():
 		if isinstance(classnum, int):
 			if classnum in names.class_names:
 				self.classname = "{}({})".format(names.class_names[classnum], classnum)
-			elif classnum in non_overlap.potential_names:
-				if input(non_overlap.potential_names[classnum]) == "":
-					self.classname = "{}({})".format(non_overlap.potential_names[classnum], classnum)
-					non_overlap.confirmed_names[classnum] = non_overlap.potential_names[classnum]
+			elif classnum in non_overlap.potential_names and not classnum in non_overlap.confirmed_names:
+			#if input(non_overlap.potential_names[classnum]) == "":
+				self.classname = "{}({})".format(non_overlap.potential_names[classnum], classnum)
+				non_overlap.confirmed_names[classnum] = non_overlap.potential_names[classnum]
 			else:
 				self.classname = "missing class (" + str(classnum) + ')'
 			self.classnum = classnum
@@ -125,19 +134,23 @@ class BW_Object():
 		return self.data[key]
 
 	# Decoding bytecode
-	def parse_field(self, bytecode, string_mode = "PREPEND_LEN"):
+	def parse_field(self, bytecode):
 		"""Helper function for reading a field's value from Bitwig bytecode.
 
 		Args:
 			bytecode (bytes): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
 			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
 			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
-			string_mode (int): Determines which string reading mode will be followed. 0 = Prepended length, 1 = Null-terminated.
-
+		
 		Returns:
 			bytes: Passes back the remaining bytecode to be parsed
 			Any: The input bytecode with the encoded field appended to the end
 		"""
+		bytecode.increment_position(-4)
+		field_num = bytecode.read_int()
+		if (not field_num in typeLists.field_type_list and not field_num in non_overlap.confirmed_fields):
+			non_overlap.confirmed_fields[field_num] = btoi(bytecode.peek(1))
+
 		#print(bytecode[:80])
 		parse_type = bytecode.read_int(1)
 		if parse_type == 0x01:		#8 bit int
@@ -152,6 +165,10 @@ class BW_Object():
 			val = bytecode.read_int(4)
 			if val & 0x80000000:
 				val -= 0x100000000
+		elif parse_type == 0x04:	#64 bit int
+			val = bytecode.read_int(8)
+			if val & 0x8000000000000000:
+				val -= 0x10000000000000000
 		elif parse_type == 0x05:	#boolean
 			val = bool(bytecode.read() != b'\x00')
 		elif parse_type == 0x06:	#float
@@ -171,17 +188,19 @@ class BW_Object():
 				val = bytecode.obj_list[-1]
 			else:
 				val = bytecode.obj_list[obj_num]
-		elif parse_type == 0x0d:	#structure									#TODO: implement structure field decoding
+		elif parse_type == 0x0d:	#file
 			#raise TypeError('parse type 0d not yet implemented')
 			#print(bytecode[:180])
-			print("unimplemented section: structure")
-			header_len = bytecode.read_int()
-			structure_bytecode = bytecode.read(header_len)
-			#print(structure_bytecode)
-			val = 'structure placeholder'
-			#from src.lib import bwfile
-			#val = BW_Meta()
-			#val.decode(structure_bytecode)
+			from src.lib import bwfile
+			file_len = bytecode.read_int()
+			if file_len == 16:
+				val = bytecode.read(16)
+			else:
+				val = bwfile.BW_File()
+				sub_bytecode = bwfile.BW_Bytecode()
+				sub_bytecode.set_contents(bytecode.read(file_len))
+				#sub_bytecode.set_string_mode("NULL_TERMINATED")
+				val.decode(sub_bytecode)
 			'''
 			if currentSection == 2:
 				#field_length += 57 #not sure when to put this in
@@ -201,27 +220,25 @@ class BW_Object():
 				each_object = BW_Object.decode(bytecode)
 				val.append(each_object)
 			bytecode.increment_position(4)
-		elif parse_type == 0x14:	#map string									#TODO: make this work for other types
+		elif parse_type == 0x14:	#map string
 			#field += 'type : "map<string,object>",\n' + 'data :\n' + '{\n'
 			val = {"type": '', "data": {}}
 			string = ''
 			val["type"] = "map<string,object>"
-			while (bytecode.peek()):
-				sub_parse_type = bytecode.read()
-				if sub_parse_type == 0x0:
-					val["data"][''] = None
-				elif sub_parse_type == 0x1:
+			sub_parse_type = bytecode.read_int(1)
+			while (sub_parse_type):
+				if sub_parse_type == 0x1:
 					string = bytecode.read_str()
 					val["data"][string] = BW_Object.decode(bytecode)
 				else:
 					val["type"] = "unknown"
-			bytecode = bytecode[1:]
+				sub_parse_type = bytecode.read_int(1)
 		elif parse_type == 0x15:	#UUID
 			val = str(uuid.UUID(bytes=bytecode.read(16)))
 		elif parse_type == 0x16:	#color
 			flVals = struct.unpack('>ffff', bytecode.read(16))
 			val = color.Color(*flVals)
-		elif parse_type == 0x17:	#float array (never been used before)		#TODO: test this
+		elif parse_type == 0x17:	#float array (never been used before)
 			arr_len = bytecode.read_int()
 			val = []
 			for i in range(arr_len):
@@ -231,26 +248,39 @@ class BW_Object():
 			val = []
 			for i in range(arr_len):
 				val.append(bytecode.read_str())
-		elif parse_type == 0x1a:	#source?													#not done yet
-			print("untested section: 1a")
-			print(bytecode.peek(30))
-			num_len = bytecode.read_int()
-			if num_len == 0x90:
-				print("nonenone")
-				return route.Route(None, None)
-			num_val = bytecode.read_int(4*num_len)
-			str_val = bytecode.read_str()
-			val = route.Route(num_val, str_val)
-			print(val)
+		elif parse_type == 0x1a:	# route
+			#print("untested section: 1a")
+			#print("position: " + hex(bytecode.position))
+			#print(bytecode.peek(30))
+			sub_parse = bytecode.read_int() # someday, I'll figure this out and realize how stupid I was when I wrote this.
+			if sub_parse == 0x90:
+				bytecode.increment_position(-4)
+				#print("nonenone")
+				val = route.Route()
+				obj = BW_Object.decode(bytecode)
+				val.data['obj'] = obj
+				val.data['str'] = bytecode.read_str()
+				#print(bytecode.peek(40))
+				#input()
+			elif sub_parse == 0x01:
+				val = route.Route()
+				val.data['int'] = bytecode.read_int()
+				val.data['str'] = bytecode.read_str()
+				#print(val)
+			else:
+				raise TypeError("unparsable value in route")
 		elif parse_type == 51:
-			print("unparsed section: 3")
+			print("position: " + hex(bytecode.position))
+			raise TypeError("this bug should be gone")
 			#print(bytecode[:10])
 			bytecode.increment_position(-2)
 			val = BW_Object.decode(bytecode)
 			#print(bytecode[:10])
 		else:
-			#bytecode.increment_position(-4)
-			#print(bytecode.peek(40))
+			print(bytecode.obj_list[-1].data)
+			print("position: " + hex(bytecode.position))
+			bytecode.increment_position(-4)
+			print(bytecode.peek(80))
 			raise TypeError('unknown type ' + str(parse_type))
 		return val
 
@@ -289,6 +319,12 @@ class BW_Object():
 							bytecode.write(hex(0xFFFFFFFF + value + 1)[2:])
 						else:
 							bytecode.write_int(value, 8)
+					else:
+						bytecode.write('04')
+						if value < 0:
+							bytecode.write(hex(0xFFFFFFFFFFFFFFFF + value + 1)[2:])
+						else:
+							bytecode.write_int(value, 16)
 				elif typeLists.field_type_list[fieldNum] == 0x05:
 					bytecode.write('05')
 					bytecode.write('01' if value else '00')
@@ -304,7 +340,7 @@ class BW_Object():
 					bytecode.write('08')
 					value = value.replace('\\n', '\n')
 					bytecode.write_str(value)
-				elif typeLists.field_type_list[fieldNum] == 0x09:
+				elif typeLists.field_type_list[fieldNum] in (0x09, 0x14):
 					if isinstance(value, BW_Object):
 						if value in bytecode.obj_list:
 							bytecode.write('0b')
@@ -315,29 +351,40 @@ class BW_Object():
 					elif value is None:
 						print("untested portion: NoneType")
 						bytecode.write('0a')
+					elif isinstance(value, dict):
+						bytecode.write('14')
+						if len(value['data']):
+							bytecode.write('01')
+							for key in value["data"]:
+								bytecode.write_str(key)
+								value["data"][key].encode_to(bytecode)
+						bytecode.write('00')
+				elif typeLists.field_type_list[fieldNum] == 0x0d:
+					bytecode.write('0d')
+					from src.lib import bwfile
+					if isinstance(value, bwfile.BW_File):
+						sub_bytecode = bwfile.BW_Bytecode()
+						#sub_bytecode.set_string_mode("NULL_TERMINATED")
+						value.encode_to(sub_bytecode)
+						bytecode.write_int(sub_bytecode.contents_len)
+						bytecode.write(sub_bytecode.contents)
+					elif isinstance(value, bytes):
+						bytecode.write_int(len(value))
+						bytecode.write(value)
+					else:
+						raise TypeError("invalid structure type")
 				elif typeLists.field_type_list[fieldNum] == 0x12:
 					bytecode.write('12')
 					for item in value:
 						if isinstance(item, BW_Object):
 							if item in bytecode.obj_list:
 								bytecode.write('00000001')
-								bytecode.write_int(obj_list.index(item),8)
+								bytecode.write_int(bytecode.obj_list.index(item),8)
 							else:
 								item.encode_to(bytecode)
 						else:
 							print("something went wrong in objects.py: \'not object list\'")
 					bytecode.write('00000003')
-				elif typeLists.field_type_list[fieldNum] == 0x14:
-					bytecode.write('14')
-					if '' in value["type"]:
-						pass
-					else:
-						bytecode.write('01')
-						for key in value["data"]:
-							bytecode.write_int(len(key), 8)
-							bytecode.write(key.encode('utf-8'))
-							bytecode.write(value["data"][key].encode())
-					bytecode.write('00')
 				elif typeLists.field_type_list[fieldNum] == 0x15:
 					bytecode.write('15')
 					placeholder = uuid.UUID(value)
@@ -358,14 +405,16 @@ class BW_Object():
 					for each_str in value:
 						each_str = each_str.replace('\\n', '\n')
 						bytecode.write_str(each_str)
-				elif typeLists.field_type_list[fieldNum] == 0x1a: #string array
+				elif typeLists.field_type_list[fieldNum] == 0x1a: # route
 					bytecode.write('1a')
-					if value.data["str"] == None and value.data["num"] == None:
-						bytecode.write('00000090')
-						return bytecode
-					bytecode.write_int(value.data["num"], 4)
-					bytecode.write_int(len(value.data["str"]), 4)
-					bytecode.write(value.data["str"].encode('utf-8'))
+					if 'obj' in value.data:
+						#bytecode.write_int(0x90)
+						value.data['obj'].encode_to(bytecode)
+					if 'int' in value.data:
+						bytecode.write_int(1)
+						bytecode.write_int(value.data["int"])
+					if 'str' in value.data:
+						bytecode.write_str(value.data["str"])
 				else:
 					if typeLists.field_type_list[fieldNum] == None:
 						print("skipped in binary serialization: {}".format(fieldNum))
@@ -521,7 +570,9 @@ class BW_Meta(BW_Object):
 				bytecode = bytecode[str_len:]
 				#objList.append(Atom(name))
 			else:
-				raise TypeError()
+				bytecode.increment_position(-48)
+				print(bytecode.peek(40))
+				raise TypeError("mystery type?!?")
 		bytecode.increment_position(4)
 		return
 

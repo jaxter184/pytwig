@@ -1,4 +1,5 @@
 confirmed_names = {}
+confirmed_fields = {}
 potential_names = {10: 'object',
 18: 'sync_int32_value_change_request',
 20: 'protocol_value',

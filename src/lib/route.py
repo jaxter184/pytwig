@@ -2,12 +2,12 @@
 
 class Route:
 	type = 'route'
-	def __init__(self, num, str):
+	def __init__(self):
 		self.type = 'route'
-		self.data = {"num":num, "str":str}
+		self.data = {}
 
 	def __repr__(self):
 	    return self.__str__()
 
 	def __str__(self):
-		return "Route: s{}, n{}".format(self.data["num"], self.data["str"])
+		return "Route: {}".format(self.data)
