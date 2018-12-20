@@ -7,6 +7,7 @@ from src.lib.util import *
 class BW_File:
 	bytecode = None
 	def __init__(self, type = None):
+		self.num_spaces = 0
 		if type == None:
 			self.header = ''
 			self.meta = objects.BW_Meta(None)
@@ -72,22 +73,24 @@ class BW_File:
 
 	def encode(self):
 		bytecode = BW_Bytecode()
-		bytecode.write(bytearray(self.header[:11] + '2' + self.header[12:], "utf-8"))
+		bytecode.write(bytes(self.header[:11] + '2' + self.header[12:], "utf-8"))
 		self.meta.encode_to(bytecode)
-		bytecode.write(bytearray('\n', "utf-8"))
+		bytecode.write(bytes(' '*self.num_spaces , "utf-8")) # for debug purposes
+		bytecode.write(bytes('\n', "utf-8"))
 		self.contents.encode_to(bytecode)
 		return bytecode
 
-	def decode(self, bytecode):
+	def decode(self, bytecode, meta_only = False):
 		self.header = bytecode.read_str(40)
 		if self.header[:4] == 'BtWg' and int(self.header[4:40], 16):
 			if self.header[11] == '2':
 				self.meta.decode(bytecode)
-				while bytecode.read(1) == 0x20: #TODO: change to != 0x0a
+				while bytecode.read_int(1) == 0x20: #TODO: change to != 0x0a
+					self.num_spaces += 1 # for debug purposes
 					pass
 				if meta_only:
 					return;
-				self.contents = BW_Object.decode(bytecode)
+				self.contents = objects.BW_Object.decode(bytecode)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
 				'''
@@ -105,7 +108,7 @@ class BW_File:
 	def write(self, path, json = False):
 		from src.lib import fs
 		output = self.encode()
-		fs.write_binary(path, output)
+		fs.write_binary(path, output.contents)
 
 	def export(self, path):
 		from src.lib import fs
@@ -114,23 +117,22 @@ class BW_File:
 	def read(self, path, raw = False, meta_only = False):
 		from src.lib import fs
 		self.bytecode = BW_Bytecode().set_contents(fs.read_binary(path))
-		self.bytecode.meta_only = meta_only
 		self.bytecode.raw = raw
-		self.decode(self.bytecode)
+		self.decode(self.bytecode, meta_only = meta_only)
 
 class BW_Bytecode:
-	contents = b''
-	contents_len = 0
-	position = 0
-	string_mode = "PREPEND_LEN"
-	meta_only = False
-	raw = False
-	obj_list = [None]
-	reading_meta = True
 
 	def __init__(self, contents = ''):
+		self.contents = b''
+		self.contents_len = 0
 		if contents != '':
 			self.contents = contents
+		self.position = 0
+		self.reading_meta = True
+		self.obj_list = [None]
+		self.meta_only = False
+		self.raw = False
+		self.string_mode = "PREPEND_LEN"
 
 	def set_contents(self, contents):
 		self.contents = contents
@@ -143,6 +145,11 @@ class BW_Bytecode:
 
 	def reset_pos(self):
 		self.position = 0
+
+	def peek(self, length = 1):
+		if self.position + length > self.contents_len:
+			raise EOFError("End of file")
+		return self.contents[self.position:self.position+length]
 
 	def read(self, length = 1):
 		output = self.peek(length)
@@ -157,12 +164,17 @@ class BW_Bytecode:
 		else:
 			if self.string_mode == "PREPEND_LEN":
 				str_len = self.read_int()
-				char_enc = False #false:utf-8, true:utf-16
 				if (str_len & 0x80000000):
 					str_len &= 0x7fffffff
-					char_enc = True
+					char_enc = 'utf-16'
+					char_len = 2
+				else:
+					char_enc = 'utf-8'
+					char_len = 1
 				if (str_len > 100000):
 					raise TypeError('String is too long')
+				else:
+					return self.read(str_len*(char_len)).decode(char_enc)
 				return self.read_str(str_len)
 			elif self.string_mode == "NULL_TERMINATED":
 				output = b''
@@ -170,31 +182,44 @@ class BW_Bytecode:
 					output += self.read()
 				self.increment_position(1) # increment position to pass over null
 				return str(output, "utf-8")
+			else:
+				raise SyntaxError("Invalid string mode")
 
 	def read_int(self, len = 4):
 		return btoi(self.read(len))
 
+	def peek_int(self, len = 4):
+		return btoi(self.peek(len))
+
 	def write(self, append):
-		if isinstance(append, bytearray):
-			contents += append
-		elif isinstance(append, string):
-			contents += bytearray.fromhex(a)
-		self.contents_len = len(contents)
+		if isinstance(append, bytes):
+			self.contents += append
+		elif isinstance(append, str):
+			self.contents += bytes.fromhex(append)
+		else:
+			raise TypeError("Cannot write a non-bytes file")
+		self.contents_len = len(self.contents)
 
 	def write_str(self, string):
-		if string_mode == "PREPEND_LEN":
-			contents += bytearray.fromhex(hexPad(len(string), 8))
-			contents.extend(string.encode('utf-8'))
-		elif string_mode == "NULL_TERMINATED":
-			contents.extend(string.encode('utf-8'))
-			contents += bytearray([0])
+		if self.string_mode == "PREPEND_LEN":
+			try: string.encode("ascii")
+			except UnicodeEncodeError:
+				self.contents += bytes.fromhex(hex(0x80000000 + len(string))[2:])
+				self.contents += string.encode('utf-16be')
+			else:
+				self.contents += hexPad(len(string), 8)
+				self.contents += string.encode('utf-8')
+		elif self.string_mode == "NULL_TERMINATED":
+			self.contents += string.encode('utf-8')
+			self.contents += bytes([0])
+		else:
+			raise SyntaxError("Invalid string mode")
+
+	def write_int(self, num, pad):
+		self.contents += hexPad(num, pad)
+		self.contents_len = len(self.contents)
 
 	def increment_position(self, amt):
+		if self.position + amt > self.contents_len:
+			raise EOFError("End of file")
 		self.position = self.position + amt
-		if self.position + length > self.contents_len:
-			raise EOFError("End of file")
-
-	def peek(self, length):
-		if self.position + length > self.contents_len:
-			raise EOFError("End of file")
-		return self.contents[self.position:self.position+length]

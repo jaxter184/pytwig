@@ -187,6 +187,10 @@ class_names = {
 	#test names
 
 
+	763: "missing_class_remote_control",
+	590: "missing_class_some_sort_of_preset_document",
+	399: "missing_class_nested_device_chain_preset",
+
 	#retrieved from bitwig.jar
 	36:"equal_tempered_tuning",
 	46:"float_document",

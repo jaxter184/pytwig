@@ -31,9 +31,9 @@ class Color():
 		"""Encodes the color object into Bitwig bytecode.
 
 		Returns:
-			bytearray: Bitwig bytecode representation of the Color object.
+			bytes: Bitwig bytecode representation of the Color object.
 		"""
-		output = bytearray(b'')
+		output = b''
 		count = 0
 		for item in self.data:
 			flVal = struct.unpack('>I', struct.pack('>f', item))[0]

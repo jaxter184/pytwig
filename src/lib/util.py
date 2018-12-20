@@ -54,14 +54,13 @@ def uuid_from_text(text):
 
 # Adds leading 0s to a hex value
 def hexPad(data, pad = 8):
-	if isinstance(data, bytearray):
-		return bytearray.fromhex((pad/2-len(value))*'00') + data
+	if isinstance(data, bytes):
+		return bytes.fromhex((pad/2-len(value))*'00') + data
 	elif isinstance(data, int):
 		value = hex(data)[2:]
-		return bytearray.fromhex((pad-len(value))*'0'+value)
+		return bytes.fromhex((pad-len(value))*'0'+value)
 	else:
-		print("jerror: incorrect input for pad prepend")
-		return data
+		raise TypeError("incorrect input type for zero padding")
 
 # Gets the classnum or fieldnum from a string
 def extract_num(name):
