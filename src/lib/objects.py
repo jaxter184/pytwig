@@ -38,7 +38,6 @@ class BW_Object():
 	"""
 	classname = ""
 	data = {}
-	decode_method_raw = False
 	def __init__(self, classnum = None, fields = None,):
 		self.data = OrderedDict()
 
@@ -127,7 +126,7 @@ class BW_Object():
 		return self.data[key]
 
 	# Decoding bytecode
-	def parse_field(self, bytecode, obj_list, string_mode = 0):
+	def parse_field(self, bytecode, string_mode = 0):
 		"""Helper function for reading a field's value from Bitwig bytecode.
 
 		Args:
@@ -141,53 +140,29 @@ class BW_Object():
 			Any: The input bytecode with the encoded field appended to the end
 		"""
 		#print(bytecode[:80])
-		parse_type = bytecode[0]
-		bytecode = bytecode[1:]
+		parse_type = bytecode.read()
 		if parse_type == 0x01:		#8 bit int
-			val = bytecode[0]
+			val = bytecode.read()
 			if val & 0x80:
 				val -= 0x100
-			bytecode = bytecode[1:]
 		elif parse_type == 0x02:	#16 bit int
-			val = btoi(bytecode[:2])
+			val = bytecode.read_int(2)
 			if val & 0x8000:
 				val -= 0x10000
-			bytecode = bytecode[2:]
 		elif parse_type == 0x03:	#32 bit int
-			val = btoi(bytecode[:4])
+			val = bytecode.read_int(4)
 			if val & 0x80000000:
 				val -= 0x100000000
-			bytecode = bytecode[4:]
 		elif parse_type == 0x05:	#boolean
-			val = bool(bytecode[0])
-			bytecode = bytecode[1:]
+			val = bool(bytecode.read())
 		elif parse_type == 0x06:	#float
-			val = struct.unpack('>f', bytecode[:4])[0]
-			bytecode = bytecode[4:]
+			val = struct.unpack('>f', bytecode.read(4))[0]
 		elif parse_type == 0x07:	#double
-			val = struct.unpack('>d', bytecode[:8])[0]
-			bytecode = bytecode[8:]
+			val = struct.unpack('>d', bytecode.read(8))[0]
 		elif parse_type == 0x08:	#string
-			if string_mode == 0:
-				stringLength = btoi(bytecode[:4])
-				bytecode = bytecode[4:]
-				val = ''
-				char_enc = False #false:utf-8, true:utf-16
-				if (stringLength & 0x80000000):
-					stringLength &= 0x7fffffff
-					char_enc = True
-				if (stringLength > 100000):
-					raise TypeError('String is too long')
-				else:
-					val = bytecode[:stringLength*(2 if char_enc else 1)].decode('utf-16' if char_enc else 'utf-8')
-				bytecode = bytecode[stringLength*(2 if char_enc else 1):]
-			elif string_mode == 1:
-				while (bytecode[0]) != 0x00:
-					val += chr(bytecode[0])
-					bytecode = bytecode[1:]
-				bytecode = bytecode[1:]
+			val = bytecode.read_str()
 		elif parse_type == 0x09:	#object
-			(bytecode, val,) = self.decode_object(bytecode, obj_list)
+			val = BW_Object.decode(bytecode)
 		elif parse_type == 0x0a:	#null
 			val = None
 			#bytecode = bytecode
@@ -195,9 +170,9 @@ class BW_Object():
 			obj_num = btoi(bytecode[:4])
 			if obj_num >= len(obj_list):
 				print ("this shouldnt happen: reference")
-				val = obj_list[-1]
+				val = bytecode.obj_list[-1]
 			else:
-				val = obj_list[obj_num]
+				val = bytecode.obj_list[obj_num]
 			bytecode = bytecode[4:]
 		elif parse_type == 0x0d:	#structure									#TODO: implement structure field decoding
 			#raise TypeError('parse type 0d not yet implemented')
@@ -298,11 +273,11 @@ class BW_Object():
 			raise TypeError('unknown type ' + str(parse_type))
 		return bytecode, val
 
-	def encode_field(self, output, field, obj_list):
+	def encode_field(self, bytecode, field):
 		"""Helper function for recursively serializing Bitwig objects into Bitwig bytecode.
 
 		Args:
-			output (bytearray): Current bytecode to suffix the encoded field onto and output. TODO: consider turning this into its own object so it only has to be passed in and not returned.
+			bytecode (bytearray): Current bytecode to suffix the encoded field onto and output. TODO: consider turning this into its own object so it only has to be passed in and not returned.
 			field (str): Key of the field of this object's data dictionary to be encoded into Bitwig bytecode
 
 		Returns:
@@ -311,111 +286,111 @@ class BW_Object():
 		value = self.data[field]
 		fieldNum = extract_num(field)
 		if value == None:
-			output += bytearray.fromhex('0a')
+			bytecode += bytearray.fromhex('0a')
 		else:
 			if fieldNum in typeLists.field_type_list:
 				if typeLists.field_type_list[fieldNum] == 0x01:
 					if value <= 127 and value >= -128:
-						output += bytearray.fromhex('01')
+						bytecode += bytearray.fromhex('01')
 						if value < 0:
-							output += bytearray.fromhex(hex(0xFF + value + 1)[2:])
+							bytecode += bytearray.fromhex(hex(0xFF + value + 1)[2:])
 						else:
-							output += hexPad(value, 2)
+							bytecode += hexPad(value, 2)
 					elif value <= 32767 and value >= -32768:
-						output += bytearray.fromhex('02')
+						bytecode += bytearray.fromhex('02')
 						if value < 0:
-							output += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
+							bytecode += bytearray.fromhex(hex(0xFFFF + value + 1)[2:])
 						else:
-							output += hexPad(value, 4)
+							bytecode += hexPad(value, 4)
 					elif value <= 2147483647 and value >= -2147483648:
-						output += bytearray.fromhex('03')
+						bytecode += bytearray.fromhex('03')
 						if value < 0:
-							output += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
+							bytecode += bytearray.fromhex(hex(0xFFFFFFFF + value + 1)[2:])
 						else:
-							output += hexPad(value, 8)
+							bytecode += hexPad(value, 8)
 				elif typeLists.field_type_list[fieldNum] == 0x05:
-					output += bytearray.fromhex('05')
-					output += bytearray.fromhex('01' if value else '00')
+					bytecode += bytearray.fromhex('05')
+					bytecode += bytearray.fromhex('01' if value else '00')
 				elif typeLists.field_type_list[fieldNum] == 0x06:
 					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
-					output += bytearray.fromhex('06')
-					output += hexPad(flVal,8)
+					bytecode += bytearray.fromhex('06')
+					bytecode += hexPad(flVal,8)
 				elif typeLists.field_type_list[fieldNum] == 0x07:
 					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
-					output += bytearray.fromhex('07')
-					output += hexPad(dbVal,16)
+					bytecode += bytearray.fromhex('07')
+					bytecode += hexPad(dbVal,16)
 				elif typeLists.field_type_list[fieldNum] == 0x08:
-					output += bytearray.fromhex('08')
+					bytecode += bytearray.fromhex('08')
 					value = value.replace('\\n', '\n')
 					try: value.encode("ascii")
 					except UnicodeEncodeError:
-						output += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
-						output.extend(value.encode('utf-16be'))
+						bytecode += bytearray.fromhex(hex(0x80000000 + len(value))[2:])
+						bytecode.extend(value.encode('utf-16be'))
 					else:
-						output += hexPad(len(value), 8)
-						output.extend(value.encode('utf-8'))
+						bytecode += hexPad(len(value), 8)
+						bytecode.extend(value.encode('utf-8'))
 				elif typeLists.field_type_list[fieldNum] == 0x09:
 					if isinstance(value, BW_Object):
 						if value in obj_list:
-							output += bytearray.fromhex('0b')
-							output += hexPad(obj_list.index(value),8)
+							bytecode += bytearray.fromhex('0b')
+							bytecode += hexPad(obj_list.index(value),8)
 						else:
-							output += bytearray.fromhex('09')
-							output += value.encode(obj_list)
+							bytecode += bytearray.fromhex('09')
+							bytecode += value.encode(obj_list)
 					elif value is None:
 						print("untested portion: NoneType")
-						output += bytearray.fromhex('0a')
+						bytecode += bytearray.fromhex('0a')
 				elif typeLists.field_type_list[fieldNum] == 0x12:
-					output += bytearray.fromhex('12')
+					bytecode += bytearray.fromhex('12')
 					for item in value:
 						if isinstance(item, BW_Object):
 							if item in obj_list:
-								output += bytearray.fromhex('00000001')
-								output += hexPad(obj_list.index(item),8)
+								bytecode += bytearray.fromhex('00000001')
+								bytecode += hexPad(obj_list.index(item),8)
 							else:
-								output += item.encode(obj_list)
+								bytecode += item.encode(obj_list)
 						else:
 							print("something went wrong in objects.py: \'not object list\'")
-					output += bytearray.fromhex('00000003')
+					bytecode += bytearray.fromhex('00000003')
 				elif typeLists.field_type_list[fieldNum] == 0x14:
-					output += bytearray.fromhex('14')
+					bytecode += bytearray.fromhex('14')
 					if '' in value["type"]:
 						pass
 					else:
-						output += bytearray.fromhex('01')
+						bytecode += bytearray.fromhex('01')
 						for key in value["data"]:
-							output += hexPad(len(key), 8)
-							output.extend(key.encode('utf-8'))
-							output += value["data"][key].encode()
-					output += bytearray.fromhex('00')
+							bytecode += hexPad(len(key), 8)
+							bytecode.extend(key.encode('utf-8'))
+							bytecode += value["data"][key].encode()
+					bytecode += bytearray.fromhex('00')
 				elif typeLists.field_type_list[fieldNum] == 0x15:
-					output += bytearray.fromhex('15')
+					bytecode += bytearray.fromhex('15')
 					placeholder = uuid.UUID(value)
-					output.extend(placeholder.bytes)
+					bytecode.extend(placeholder.bytes)
 				elif typeLists.field_type_list[fieldNum] == 0x16:
-					output += bytearray.fromhex('16')
-					output += value.encode()
+					bytecode += bytearray.fromhex('16')
+					bytecode += value.encode()
 				elif typeLists.field_type_list[fieldNum] == 0x17:
-					output += bytearray.fromhex('17')
-					output += hexPad(len(value), 8)
+					bytecode += bytearray.fromhex('17')
+					bytecode += hexPad(len(value), 8)
 					for item in value:
 						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
-						output += hexPad(flVal,8)
+						bytecode += hexPad(flVal,8)
 				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
-					output += bytearray.fromhex('19')
-					output += hexPad(len(value), 8)
+					bytecode += bytearray.fromhex('19')
+					bytecode += hexPad(len(value), 8)
 					for i in value:
 						i = i.replace('\\n', '\n')
-						output += hexPad(len(i), 8)
-						output.extend(i.encode('utf-8'))
+						bytecode += hexPad(len(i), 8)
+						bytecode.extend(i.encode('utf-8'))
 				elif typeLists.field_type_list[fieldNum] == 0x1a: #string array
-					output += bytearray.fromhex('1a')
+					bytecode += bytearray.fromhex('1a')
 					if value.data["str"] == None and value.data["num"] == None:
-						output += bytearray.fromhex('00000090')
-						return output
-					output += hexPad(value.data["num"], 4)
-					output += hexPad(len(value.data["str"]), 4)
-					output.extend(value.data["str"].encode('utf-8'))
+						bytecode += bytearray.fromhex('00000090')
+						return bytecode
+					bytecode += hexPad(value.data["num"], 4)
+					bytecode += hexPad(len(value.data["str"]), 4)
+					bytecode.extend(value.data["str"].encode('utf-8'))
 				else:
 					if typeLists.field_type_list[fieldNum] == None:
 						print("skipped in binary serialization: {}".format(fieldNum))
@@ -424,9 +399,9 @@ class BW_Object():
 						print("jaxter stop being a lazy nerd and " + hex(typeLists.field_type_list[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
 			else:
 				print("missing type in typeLists.field_type_list: {}".format(fieldNum))
-		return output
+		return bytecode
 
-	def decode_fields(self, bytecode, obj_list):
+	def decode_fields(self, bytecode):
 		"""Helper function for iteratively reading all of an object's fields from Bitwig bytecode
 
 		Args:
@@ -437,8 +412,7 @@ class BW_Object():
 		Returns:
 			bytearray: Passes back the remaining bytecode to be parsed
 		"""
-		field_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
+		field_num = bytecode.read_int()
 		while (field_num):
 			if field_num in names.field_names:
 				field_name = names.field_names[field_num] +  '(' + str(field_num) + ')'
@@ -449,74 +423,44 @@ class BW_Object():
 			self.data[field_name] = value
 			field_num = btoi(bytecode[:4])
 			bytecode = bytecode[4:]
-		return bytecode
 
-	def decode_object(self, bytecode, obj_list): # TODO: merge with decode
-		from src.lib import atoms
-		from src.lib.luts import names
-		obj_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
+	@staticmethod
+	def decode(bytecode):
+		"""Helper function for recursively reading Bitwig objects from Bitwig bytecode.
+
+		Args:
+			bytecode (bytearray): Bytecode to be parsed.
+
+		Returns:
+			bytearray: Passes back the remaining bytecode to be parsed
+		"""
+		obj_num = bytecode.read_int()
 		if obj_num == 0x1: #object references
-			obj_num = btoi(bytecode[:4])
-			bytecode = bytecode[4:]
-			return bytecode, obj_list[obj_num]
+			return bytecode.obj_list[bytecode.read_int()]
 		else:
-			if self.decode_method_raw:
+			if bytecode.raw:
 				obj = BW_Object()
 				obj.data = OrderedDict()
+				from src.lib.luts import names
 				if obj_num in names.class_names:
 					obj.classname =  "{}({})".format(names.class_names[obj_num],obj_num)
 				else:
 					print("problematic missing class")
 					obj.classname = "missing_class({})".format(obj_num)
 				obj.classnum = obj_num
-				obj_list.append(obj)
-				bytecode = obj.decode_fields(bytecode, obj_list)
-				#print(obj_list)
-				return bytecode, obj
 			else:
 				obj = BW_Object(obj_num)
-				obj_list.append(obj)
-				bytecode = obj.decode_fields(bytecode, obj_list)
-				#print(obj_list)
-				return bytecode, obj
+			bytecode.obj_list.append(obj)
+			obj.decode_fields(bytecode)
+			return obj
 
-	def decode(self, bytecode, obj_list, raw = False):
-		"""Helper function for recursively reading Bitwig objects from Bitwig bytecode.
-
-		Args:
-			bytecode (bytearray): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
-			obj_list (list): List of objects that are currently in the file. Used for parsing references.
-			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables.
-
-		Returns:
-			bytearray: Passes back the remaining bytecode to be parsed
-		"""
-		if raw:
-			self.decode_method_raw = True
-		from src.lib import atoms
-		from src.lib.luts import names
-		obj_num = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
-		if obj_num == 0x1: #object references
-			raise TypeError("Primary contents cannot be a reference")
-		else:
-			self.data = OrderedDict()
-			self.classname = names.class_names[obj_num] + '(' + str(obj_num) + ')'
-			self.classnum = obj_num
-			obj_list.append(self)
-			bytecode = self.decode_fields(bytecode, obj_list)
-			return bytecode
-
-	def encode(self, obj_list):
-		obj_list.append(self)
-		output = bytearray(b'')
-		output += hexPad(self.classnum,8)
+	def encode_to(self, bytecode):
+		bytecode.obj_list.append(self)
+		bytecode.write(hexPad(self.classnum,8))
 		for each_field in self.data:
-			output += hexPad(extract_num(each_field),8)
-			output = self.encode_field(output, each_field, obj_list)
-		output += bytearray.fromhex('00000000')
-		return output
+			bytecode.write(hexPad(extract_num(each_field),8))
+			self.encode_field(bytecode, each_field)
+		bytecode.write('00000000')
 
 	def serialize(self):
 		"""Serializes the object into a json format.
@@ -575,38 +519,28 @@ class BW_Meta(BW_Object):
 			raise TypeError('Type "' + type + '" is an invalid application type')
 		self.data['application_version_name'] = BW_VERSION
 
-	def encode(self):
-		output = bytearray(b'')
-		output += bytearray.fromhex('00000004')
-		output += bytearray.fromhex('00000004')
-		output.extend('meta'.encode('utf-8'))
+	def encode_to(self, bytecode):
+		bytecode.write('00000004')
+		bytecode.write_str('meta')
 		for each_field in self.data:
-			output += bytearray.fromhex('00000001')
-			output += hexPad(len(each_field), 8)
-			output.extend(each_field.encode('utf-8'))
-			output = self.encode_field(output, each_field, None)
-		output += bytearray.fromhex('00000000')
-		return output
+			bytecode.write('00000001')
+			bytecode.write_str(each_field)
+			self.encode_field(bytecode, each_field, None)
+		bytecode.write('00000000')
 
 	def decode(self, bytecode):
-		if bytecode[:4] != bytearray([0,0,0,0x04]):
+		if not bytecode.reading_meta:
+			raise SyntaxError("BW_Bytecode in wrong read mode")
+		if bytecode.read(4) != bytearray([0,0,0,4]):
 			raise TypeError()
-		bytecode = bytecode[4:]
-		length = btoi(bytecode[:4])
-		bytecode = bytecode[4:]
-		self.classname = str(bytecode[:length], 'utf-8')
-		bytecode = bytecode[length:]
-		while bytecode[:4] != bytearray([0,0,0,0]):
-			if btoi(bytecode[:4]) == 0x1: #parameter
-				bytecode = bytecode[4:]
-				key_len = btoi(bytecode[:4]) #length of the string
-				bytecode = bytecode[4:]
-				key = bytecode[:key_len].decode('utf-8')
-				bytecode = bytecode[key_len:]
-				(bytecode, value) = self.parse_field(bytecode, None)
-				self.data[key] = value
-			elif btoi(bytecode[:4]) == 0x4: #object
-				raise TypeError()
+		self.classname = bytecode.read_str()
+		while bytecode.peek(4) != bytearray([0,0,0,0]):
+			type = btoi(bytecode.read(4))
+			if type == 0x1: #field
+				key = bytecode.read_str()
+				self.data[key] = self.parse_field(bytecode)
+			elif type == 0x4: #object
+				raise TypeError("No objects should be in root of metadata")
 				str_len = btoi(bytecode[:4])
 				bytecode = bytecode[4:]
 				name = str(bytecode[:length], 'utf-8')
@@ -614,8 +548,8 @@ class BW_Meta(BW_Object):
 				#objList.append(Atom(name))
 			else:
 				raise TypeError()
-		bytecode = bytecode[4:]
-		return bytecode
+		bytecode.increment_position(4)
+		return
 
 class Contents(BW_Object):
 	def add_child(self, classnum):

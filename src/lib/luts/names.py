@@ -317,6 +317,8 @@ class_names = {
 	640:"per_user_engine_settings",
 	1596: 'controller_mappings',
 	1115: 'hardware_audio_bus_configuration',
+	765: 'device_modulation_mapping_preset',
+	892: 'source_routing_component_preset',
 }
 
 

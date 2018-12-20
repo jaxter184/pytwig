@@ -3,6 +3,5 @@
 __pycache__/
 
 # test.py
-*.bw
 input
 output
