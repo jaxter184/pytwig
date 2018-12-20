@@ -126,7 +126,7 @@ class BW_Object():
 		return self.data[key]
 
 	# Decoding bytecode
-	def parse_field(self, bytecode, string_mode = 0):
+	def parse_field(self, bytecode, string_mode = "PREPEND_LEN"):
 		"""Helper function for reading a field's value from Bitwig bytecode.
 
 		Args:
@@ -161,6 +161,29 @@ class BW_Object():
 			val = struct.unpack('>d', bytecode.read(8))[0]
 		elif parse_type == 0x08:	#string
 			val = bytecode.read_str()
+			if string_mode == "PREPEND_LEN":
+				stringLength = btoi(bytecode[:4])
+				bytecode = bytecode[4:]
+				val = ''
+				if (stringLength & 0x80000000):
+					stringLength &= 0x7fffffff
+					char_enc = 'utf-16'
+					char_len = 2
+				else:
+					char_enc = 'utf-8'
+					char_len = 1
+				if (stringLength > 100000):
+					raise TypeError('String is too long')
+				else:
+					val = bytecode[:stringLength*(char_len)].decode(char_enc)
+				bytecode = bytecode[stringLength*(char_len):]
+			elif string_mode == "NULL_TERMINATED":
+				while (bytecode[0]) != 0x00:
+					val += chr(bytecode[0])
+					bytecode = bytecode[1:]
+				bytecode = bytecode[1:]
+			else:
+				raise SyntaxError("Invalid string mode")
 		elif parse_type == 0x09:	#object
 			val = BW_Object.decode(bytecode)
 		elif parse_type == 0x0a:	#null
@@ -169,7 +192,7 @@ class BW_Object():
 		elif parse_type == 0x0b:	#object reference
 			obj_num = btoi(bytecode[:4])
 			if obj_num >= len(obj_list):
-				print ("this shouldnt happen: reference")
+				raise ReferenceError("Referenced object before decode")
 				val = bytecode.obj_list[-1]
 			else:
 				val = bytecode.obj_list[obj_num]
