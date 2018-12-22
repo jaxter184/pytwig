@@ -2,7 +2,7 @@ from src.lib import bwfile, objects
 from src.lib import color as col
 from src.lib.luts import non_overlap
 
-name = "group.bwscene"
+name = "Default keyboard mappings (My version).bwkeymap"
 #name = "proj.bwproject"
 #name = "clip.bwclip"
 #name = "preset.bwpreset"

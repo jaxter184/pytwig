@@ -94,6 +94,8 @@ class BW_File:
 		self.contents.encode_to(bytecode)
 
 	def decode(self, bytecode, meta_only = False):
+		if bytecode.contents_len < 40:
+			return
 		bytecode.set_string_mode()
 		self.header = bytecode.read_str(40)
 		if self.header[:4] == 'BtWg' and int(self.header[4:40], 16):
@@ -152,10 +154,11 @@ class BW_Bytecode:
 		self.contents = contents
 		self.contents_len = len(contents)
 		self.position = 0
-		if self.contents[11] == b'2':
-			self.string_mode = "PREPEND_LEN"
-		elif self.contents[11] == b'0':
-			self.string_mode = "NULL_TERMINATED"
+		if self.contents_len >= 40:
+			if self.contents[11] == b'2':
+				self.string_mode = "PREPEND_LEN"
+			elif self.contents[11] == b'0':
+				self.string_mode = "NULL_TERMINATED"
 		return self
 
 	def set_string_mode(self, new_string_mode = None):
