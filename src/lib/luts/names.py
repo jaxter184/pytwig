@@ -187,9 +187,7 @@ class_names = {
 	#test names
 
 
-	763: "missing_class_remote_control",
-	590: "missing_class_some_sort_of_preset_document",
-	399: "missing_class_nested_device_chain_preset",
+	#763: "missing_class_remote_control",
 
 	#retrieved from bitwig.jar
 	36:"equal_tempered_tuning",
@@ -329,7 +327,6 @@ class_names = {
 	651: 'master_track_structure',
 	102: "instrument_note_event",
 	41: "instrument_note_content_timeline",
-	66: "sync_double_array_value_change_request???",
 	42: "machine_specific_file_location",
 	687: "transpose_note_expression_timeline",
 	264: "decimal_value_event",
@@ -363,6 +360,13 @@ class_names = {
 	1306: 'all_samples_folder_result',
 	1473: 'music_search_session',
 	1311: 'all_music_folder_result',
+	1969: "remote_controls_page_id",
+	589: "parallel_nested_device_chain_container_preset",
+	590: "nested_device_chain_slot_preset",
+	399: "nested_device_chain_preset",
+	163: "native device",
+	66: "instrument_note_event_timeline",
+	1547: "meta_clip_event",
 }
 
 

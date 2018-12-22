@@ -1,24 +1,24 @@
-from src.lib import bwfile
+from src.lib import bwfile, objects
+from src.lib import color as col
 from src.lib.luts import non_overlap
 
+name = "group.bwscene"
+#name = "proj.bwproject"
+#name = "clip.bwclip"
+#name = "preset.bwpreset"
+
 if __name__ == "__main__":
-    test = bwfile.BW_File()
-    test.read('input/clip4.bwclip', meta_only = False, raw = True)
-    #test.read('input/proj.bwproject', meta_only = False, raw = True)
-    #test.read('input/preset.bwpreset', meta_only = False, raw = True)
+	test = bwfile.BW_File()
+	test.read('input/' + name)
 
-    if non_overlap.confirmed_names:
-        import os
-        with open("confimed.py", 'w') as file:
-            file.write(str(non_overlap.confirmed_names).replace(", ",",\n"))
-    if non_overlap.confirmed_fields:
-        import os
-        with open("confimedfuield.py", 'w') as file:
-            file.write(str(non_overlap.confirmed_fields).replace(", ",",\n"))
+	if non_overlap.confirmed_names:
+		import os
+		with open("confimed.py", 'w') as file:
+			file.write(str(non_overlap.confirmed_names).replace(", ",",\n"))
+	if non_overlap.confirmed_fields:
+		import os
+		with open("confimedfuield.py", 'w') as file:
+			file.write(str(non_overlap.confirmed_fields).replace(", ",",\n"))
 
-    test.export('output/clip json.bwclip')
-    test.write('output/clip.bwclip')
-    #test.export('output/proj json.bwproject')
-    #test.write('output/proj.bwproject')
-    #test.write('output/preset.bwpreset')
-    #test.export('output/preset json.bwpreset')
+	test.write('output/{}.bwpreset'.format(name))
+	test.export('output/{} json.bwpreset'.format(name))

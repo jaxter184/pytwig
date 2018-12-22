@@ -11,20 +11,23 @@ if __name__ == "__main__":
 	else:
 		test = bwfile.BW_File('application/bitwig-device')
 		test.meta.set_multi({
-			"additional_device_types" : 14,
-			"branch" : "releases",
-			"creator" : "Bitwig",
+			"application_version_name" : "1.3.15",
+			"branch" : "release/1.3",
+			"comment" : "An emulation of an emulation of Ableton's OTT preset for multiband compression.\n-Jaxter",
+			"creator" : "jaxter184",
 			"device_category" : "Container",
-			"device_description" : "Serial device chain group",
-			"device_id" : "c86d21fb-d544-4daf-a1bf-57de22aa320c",
-			"device_name" : "Chain",
+			"device_creator" : "Bitwig",
+			"device_id" : "f97699d1-3b8e-4363-8ede-4994e276cc97",
+			"device_name" : "Multiband FX-3",
 			"device_type" : "audio_to_audio",
-			"device_uuid" : "c86d21fb-d544-4daf-a1bf-57de22aa320c",
-			"revision_id" : "3d1c8d38993610c6bdcab8740056e00d95c95ced",
-			"revision_no" : 71311,
-			"suggest_for_audio_input" : True,
-			"suggest_for_note_input" : True,
-			"type" : "application/bitwig-device"
+			"preset_category" : "FX",
+			"referenced_device_ids" : [
+			  "f97699d1-3b8e-4363-8ede-4994e276cc97",
+			  "22e785a2-a187-41e9-a0f2-66343694014c"
+			],
+			"revision_id" : "a017b4cd16e95f9efb2ecea10e2389f26fdb50d5",
+			"revision_no" : 47461,
+			"type" : "application/bitwig-preset"
 		})
 		test.header = "BtWg0001000200960000168b0000000000000000"
 

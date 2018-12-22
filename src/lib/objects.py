@@ -84,6 +84,12 @@ class BW_Object():
 	def __str__(self):
 		return str(self.classname)
 
+	def __dict__(self):
+		return {"class":self.classname, "data":dict(self.data)}
+
+	def show(self):
+		print(str(self.__dict__()).replace(', ', ',\n').replace('{', '{\n').replace('}', '\n}'))
+
 	def set(self, key, val):
 		"""Sets a field in the object's data dictionary
 
@@ -133,6 +139,61 @@ class BW_Object():
 			key = "{}({})".format(names.field_names[key], key)
 		return self.data[key]
 
+	def get_referenced_ids(self, output = [], visited = []):
+		if self in visited:
+			return output
+		visited.append(self)
+
+		for each_field in self.data:
+			each_value = self.data[each_field]
+			if extract_num(each_field) in (153, ):
+				if each_value not in output:
+					output.append(each_value)
+			elif isinstance(each_value, BW_Object):
+				each_value.get_referenced_ids(output, visited)
+			elif isinstance(each_value, list):
+				if len(each_value) > 0 and isinstance(each_value[0], BW_Object):
+					for each_object in each_value:
+						each_object.get_referenced_ids(output, visited)
+		return output
+
+	def check(self, key):
+		"""Checks whether the key is in the object's data dictionary.
+
+		Args:
+			key (str): The key that is checked.
+			key (int): The classnum to be converted to the key that is checked.
+
+		Returns:
+			bool: Returns true if the key exists in the data directory and false otherwise
+		"""
+		if isinstance(key, int):
+			key = "{}({})".format(names.field_names[key], key)
+		return key in self.data
+
+	def clean(self, visited = []):
+		if self in visited:
+			return output
+		visited.append(self)
+
+		#if self.check(7029) and self.get(7029) == None:
+		#	self.set(7029, BW_Object(1969))
+			#self.get(7029).set(7026, "Common")
+		if self.check(6093):
+			self.set(6093, None)
+		#if self.check(6726):
+		#	self.set(6726, [])
+
+		for each_field in self.data:
+			each_value = self.data[each_field]
+			if isinstance(each_value, BW_Object):
+				each_value.clean(visited)
+			elif isinstance(each_value, list):
+				if len(each_value) > 0 and isinstance(each_value[0], BW_Object):
+					for each_object in each_value:
+						each_object.clean(visited)
+		return
+
 	# Decoding bytecode
 	def parse_field(self, bytecode):
 		"""Helper function for reading a field's value from Bitwig bytecode.
@@ -141,7 +202,7 @@ class BW_Object():
 			bytecode (bytes): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
 			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
 			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
-		
+
 		Returns:
 			bytes: Passes back the remaining bytecode to be parsed
 			Any: The input bytecode with the encoded field appended to the end
@@ -515,8 +576,9 @@ BW_DEVICE_META_TEMPLATE = [
 	'suggest_for_audio_input', 'suggest_for_note_input',]
 BW_MODULATOR_META_TEMPLATE = [
 	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
-BW_PRESET_TEMPLATE = [
-	'device_creator', 'device_type', 'preset_category', 'referenced_device_ids', 'referenced_packaged_file_ids',]
+BW_PRESET_META_TEMPLATE = [
+	'device_creator', 'device_type', 'preset_category',
+	'referenced_device_ids', "referenced_modulator_ids", "referenced_module_ids", "referenced_packaged_file_ids",]
 
 class BW_Meta(BW_Object):
 
@@ -577,11 +639,20 @@ class BW_Meta(BW_Object):
 		return
 
 class Contents(BW_Object):
-	def add_child(self, classnum):
+	def add_atom(self, field, classnum):
 		from src.lib import atoms
 		child = atoms.Atom(classnum)
-		self.get(173).append(child)
+		if isinstance(self.get(field), list):
+			self.get(field).append(child)
+		else:
+			self.set(field, child)
 		return child
+
+	def add_child(self, classnum):
+		#from src.lib import atoms
+		#child = atoms.Atom(classnum)
+		#self.get(173).append(child)
+		return self.add_atom(173, classnum)
 
 	def add_panel(self, classnum):
 		panel = Panel(classnum)
@@ -595,6 +666,7 @@ class Contents(BW_Object):
 		proxy = atoms.Proxy_Port(50)
 		self.get(178).append(proxy)
 		return proxy
+
 
 class Panel(BW_Object):
 	def set_root_item(self, classnum):

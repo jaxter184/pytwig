@@ -14,12 +14,18 @@ class BW_File:
 			self.contents = objects.Contents(None)
 			return
 		self.header = 'BtWgXXXXX'
-		self.meta = objects.BW_Meta(type)
+		self.meta = objects.BW_Meta('application/bitwig-' + type)
 		self.meta.data = OrderedDict(sorted(self.meta.data.items(), key=lambda t: t[0])) # Sorts the dict. CLEAN: maybe put this somewhere else?
 		self.contents = None
 
 	def __str__(self):
 		return "File"
+
+	def __dict__(self):
+		return {"header":self.header, "meta":self.meta, "contents":self.contents}
+
+	def show(self):
+		print(str(self.__dict__()).replace(', ', ',\n').replace('{', '{\n').replace('}', '\n}'))
 
 	def set_header(self, value):
 		"""Sets self.header, checking for validity before doing so.
@@ -97,6 +103,7 @@ class BW_File:
 				while bytecode.read_int(1) == 0x20: #TODO: change to != 0x0a
 					self.num_spaces += 1 # for debug purposes
 					pass
+				print("spaces count: " + str(self.num_spaces))
 				if meta_only:
 					return;
 				self.contents = objects.BW_Object.decode(bytecode)
@@ -118,11 +125,12 @@ class BW_File:
 		from src.lib import fs
 		fs.write(path, self.serialize().replace('":', '" :'))
 
-	def read(self, path, raw = False, meta_only = False):
+	def read(self, path, raw = True, meta_only = False):
 		from src.lib import fs
 		bytecode = BW_Bytecode().set_contents(fs.read_binary(path))
 		bytecode.raw = raw
 		bytecode.debug_obj = self
+		self.num_spaces = 1
 		self.decode(bytecode, meta_only = meta_only)
 
 class BW_Bytecode:
@@ -158,8 +166,10 @@ class BW_Bytecode:
 				self.string_mode = "NULL_TERMINATED"
 			elif new_string_mode == '2':
 				self.string_mode = "PREPEND_LEN"
+			elif new_string_mode == '1':
+				raise SyntaxError("invalid string mode: header is json typed")
 			else:
-				raise Error("invalid string mode: " + new_string_mode)
+				raise SyntaxError("invalid string mode: " + new_string_mode)
 		else:
 			self.string_mode = new_string_mode
 

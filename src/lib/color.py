@@ -4,7 +4,7 @@ from src.lib import util
 class Color():
 	"""Data storage object that contains parameters for Bitwig colors.
 	"""
-	def __init__(self, rd, gr, bl, al):
+	def __init__(self, rd, gr, bl, al = 1.0):
 		"""Initialization for Color object
 
 		Reads color and alpha values and stores them in an array. If alpha value is 1.0, it is ignored and data array is length 3.
@@ -26,6 +26,9 @@ class Color():
 
 	def __str__(self):
 		return "Color: " + str(self.data)
+
+	def show(self):
+		print(str(self.__dict__()).replace(', ', ',\n').replace('{', '{\n').replace('}', '\n}'))
 
 	def encode(self):
 		"""Encodes the color object into Bitwig bytecode.
