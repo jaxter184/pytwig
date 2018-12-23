@@ -5,9 +5,9 @@ from src.lib.util import *
 
 
 class BW_File:
-	bytecode = None
 	def __init__(self, type = None):
 		self.num_spaces = 0
+		self.bytecode = None
 		if type == None:
 			self.header = ''
 			self.meta = objects.BW_Meta(None)
@@ -86,7 +86,7 @@ class BW_File:
 			str_byte = self.header[11]
 			bytecode.set_string_mode(str_byte)
 		else:
-			str_byte = "fuck"
+			raise SyntaxError("Invalid string mode")
 		bytecode.write(bytes(self.header[:11] + str_byte + self.header[12:], "utf-8"))
 		self.meta.encode_to(bytecode)
 		bytecode.write(bytes(' '*self.num_spaces , "utf-8")) # for debug purposes
@@ -134,6 +134,55 @@ class BW_File:
 		bytecode.debug_obj = self
 		self.num_spaces = 1
 		self.decode(bytecode, meta_only = meta_only)
+
+class BW_Collection():
+	def __init__(self):
+		self.header = 0
+		self.packaged_items = []
+		self.unpackaged_items = []
+
+	def read(self, path):
+		from src.lib import fs
+		bytecode = BW_Bytecode().set_contents(fs.read_binary(path))
+		bytecode.raw = True
+		bytecode.set_string_mode("PREPEND_LEN")
+		bytecode.debug_obj = self
+		self.decode(bytecode)
+
+	def decode(self, bytecode):
+		self.header = bytecode.read(16)
+		num_unpackaged = bytecode.read_int()
+		for i in range(num_unpackaged):
+			self.unpackaged_items.append(bytecode.read_str())
+			bytecode.increment_position(4)
+		num_packaged = bytecode.read_int()
+		for i in range(num_packaged):
+			self.packaged_items.append(bytecode.read_str())
+
+	def encode_to(self, bytecode):
+		bytecode.write(self.header)
+		bytecode.write_int(len(self.unpackaged_items))
+		for each_entry in self.unpackaged_items:
+			bytecode.write_str(each_entry)
+			bytecode.write_int(0)
+		bytecode.write_int(len(self.packaged_items))
+		for each_entry in self.packaged_items:
+			bytecode.write_str(each_entry)
+
+	def write(self, path):
+		bytecode = BW_Bytecode()
+		bytecode.set_string_mode("PREPEND_LEN")
+		bytecode.raw = True
+		bytecode.debug_obj = self
+		self.encode_to(bytecode)
+		from src.lib import fs
+		fs.write_binary(path, bytecode.contents)
+
+	def __str__(self):
+		return str(self.unpackaged_items + self.packaged_items)
+
+	def __dict__(self):
+		return {"header":self.header, "meta":self.meta, "contents":self.contents}
 
 class BW_Bytecode:
 
