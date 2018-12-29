@@ -2,15 +2,13 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import util, objects
+from src.lib import bwobj
 from src.lib.luts import typeLists
-import uuid
-import struct
 
-class Panel_Item(objects.BW_Object):
+class Panel_Item(bwobj.BW_Object):
 	def __init__(self, classnum = None, fields = None):
 		super().__init__(classnum, fields)
-		self.data["layout_settings(6226)"] = objects.BW_Object("float_core.grid_panel_item_layout_settings(1694)")
+		self.data["layout_settings(6226)"] = bwobj.BW_Object("float_core.grid_panel_item_layout_settings(1694)")
 
 	def create_item(self, classnum):
 		item = Panel_Item(classnum)

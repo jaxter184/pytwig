@@ -1,5 +1,5 @@
 # All classes regarding bitwig files
-from src.lib import objects
+from src.lib import bwobj, objects
 from collections import OrderedDict
 from src.lib.util import *
 
@@ -69,11 +69,11 @@ class BW_File:
 		return self
 
 	def serialize(self):
-		objects.serialized = [None]
+		bwobj.serialized = [None]
 		output = self.header[:11] + '1' + self.header[12:]
 		output += self.meta.serialize()
 		output += '\n'
-		objects.serialized = [None]
+		bwobj.serialized = [None]
 		output += self.contents.serialize()
 		return output
 
@@ -108,7 +108,7 @@ class BW_File:
 				print("spaces count: " + str(self.num_spaces))
 				if meta_only:
 					return;
-				self.contents = objects.BW_Object.decode(bytecode)
+				self.contents = bwobj.BW_Object.decode(bytecode)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
 			else:

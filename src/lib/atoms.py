@@ -2,15 +2,15 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import util, objects
-from src.lib.luts import typeLists
-import uuid, struct, json
+from src.lib import bwobj
+#from src.lib.luts import typeLists
+#import uuid, struct, json
 
-class Atom(objects.BW_Object):
+class Atom(bwobj.BW_Object):
 	def __init__(self, classnum = None, fields = None):
 		super().__init__(classnum, fields)
-		self.data["settings(6194)"] = objects.BW_Object("float_core.component_settings(236)")
-		self.data["settings(6194)"].data["desktop_settings(612)"] = objects.BW_Object("float_core.desktop_settings(17)")
+		self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
+		self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
 
 	def create_inport(self, classnum, quality = False):
 		if isinstance(classnum, int):
@@ -41,7 +41,7 @@ class Atom(objects.BW_Object):
 class Proxy_Port(Atom):
 	def set_port(self, type):
 		if type == 'audio':
-			port = objects.BW_Object("float_core.audio_port(242)")
+			port = bwobj.BW_Object("float_core.audio_port(242)")
 			if self.classnum == 154:
 				port.set_multi({499: " Audio out (PARENT)", 372: 3,})
 			elif self.classnum == 50:
@@ -50,7 +50,7 @@ class Proxy_Port(Atom):
 				print(self.classnum)
 				raise Error()
 		elif type == 'note':
-			port = objects.BW_Object("float_core.note_port(61)")
+			port = bwobj.BW_Object("float_core.note_port(61)")
 			if self.classnum == 154:
 				port.set_multi({499: " Note out",})
 			elif self.classnum == 50:
@@ -63,4 +63,4 @@ class Proxy_Port(Atom):
 		return self
 
 #class Value_Atom(Atom):
-#class Value_Type(objects.BW_Object):
+#class Value_Type(bwobj.BW_Object):
