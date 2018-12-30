@@ -1,2 +1,2 @@
-from src.lib import atoms
+#from src.lib.obj import atoms
 #from src import encoder, decoder

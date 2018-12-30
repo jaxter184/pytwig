@@ -2,7 +2,7 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import bwobj
+from src.lib.obj import bwobj
 from src.lib.luts import typeLists
 
 class Panel_Item(bwobj.BW_Object):

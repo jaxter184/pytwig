@@ -2,35 +2,49 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib import bwobj
-#from src.lib.luts import typeLists
+from src.lib.obj import bwobj
+from src.lib.luts import typeLists
 #import uuid, struct, json
 
 class Atom(bwobj.BW_Object):
+	"""Any BW_Object that has a settings field (fieldnum 6194) that contains component_settings
+	"""
 	def __init__(self, classnum = None, fields = None):
+		if classnum == None:
+			self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
+			self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
+			return
+		if classnum in typeLists.class_type_list and typeLists.class_type_list[classnum][0] != 6194:
+			raise TypeError("Non-atom initialized with atom initializer: {}".format(classnum))
 		super().__init__(classnum, fields)
 		self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
 		self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
 
-	def create_inport(self, classnum, quality = False):
-		if isinstance(classnum, int):
+	def connect(self, obj, quality = False, index = -1):
+		# add blank inports
+		if index == -1:
+			self.get(6194).get(614).append(bwobj.BW_Object(105))
+		elif index >= 0:
+			while(len(self.get(6194).get(614)) <= index):
+				self.get(6194).get(614).append(bwobj.BW_Object(105))
+
+		# set inport
+		if isinstance(obj, int):
 			try:
-				self.get(6194).get(614).append(Atom(105))
-				if classnum in (60, 154):
-					self.get(6194).get(614)[-1].set(248, Proxy_Port(classnum))
+				if obj in (60, 154):
+					self.get(6194).get(614)[index].set(248, Proxy_Port(obj))
 				else:
-					self.get(6194).get(614)[-1].set(248, Atom(classnum))
+					self.get(6194).get(614)[index].set(248, Atom(obj))
 				if quality:
-					self.get(6194).get(614)[-1].set(1943, True)
-				return self.get(6194).get(614)[-1].get(248)
+					self.get(6194).get(614)[index].set(1943, True)
+				return self.get(6194).get(614)[index].get(248)
 			except:
 				raise KeyError("There was an issue adding an inport. Perhaps this isn't an atom?")
-		elif isinstance(classnum, Atom):
-			self.get(6194).get(614).append(Atom(105))
-			self.get(6194).get(614)[-1].set(248, classnum)
+		elif isinstance(obj, Atom):
+			self.get(6194).get(614)[index].set(248, obj)
 			if quality:
-				self.get(6194).get(614)[-1].set(1943, True)
-			return self.get(6194).get(614)[-1].get(248)
+				self.get(6194).get(614)[index].set(1943, True)
+			return self.get(6194).get(614)[index].get(248)
 		else:
 			raise TypeError("Input is not a valid inport type")
 

@@ -1,5 +1,5 @@
 # All classes regarding bitwig files
-from src.lib import bwobj, objects
+from src.lib.obj import bwobj, objects
 from collections import OrderedDict
 from src.lib.util import *
 

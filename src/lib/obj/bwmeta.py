@@ -1,10 +1,9 @@
-# Class declarations of most Bitwig objects like metadata and contents
-# Some content taken from stylemistake's Bitwig modulator stuff https://github.com/stylemistake
+# Class declarations for file metadata
 
 from collections import OrderedDict
 from src.lib.util import *
 from src.lib.luts import typeLists
-from src.lib import bwobj
+from src.lib.obj import bwobj
 
 # Templates for meta data in the case that the file is created from scratch.
 BW_VERSION = '2.4.2'
@@ -79,44 +78,3 @@ class BW_Meta(bwobj.BW_Object):
 				raise TypeError("mystery type?!?")
 		bytecode.increment_position(4)
 		return
-
-class Contents(bwobj.BW_Object):
-	def add_atom(self, field, classnum):
-		from src.lib import atoms
-		child = atoms.Atom(classnum)
-		if isinstance(self.get(field), list):
-			self.get(field).append(child)
-		else:
-			self.set(field, child)
-		return child
-
-	def add_child(self, classnum):
-		#from src.lib import atoms
-		#child = atoms.Atom(classnum)
-		#self.get(173).append(child)
-		return self.add_atom(173, classnum)
-
-	def add_panel(self, classnum):
-		panel = Panel(classnum)
-		self.get(6213).append(panel)
-		return panel
-
-	def add_proxy(self, classnum):
-		from src.lib import atoms
-		if classnum != 50:
-			raise TypeError()
-		proxy = atoms.Proxy_Port(50)
-		self.get(178).append(proxy)
-		return proxy
-
-
-class Panel(bwobj.BW_Object):
-	def set_root_item(self, classnum):
-		from src.lib import panel_items
-		root_item = panel_items.Panel_Item(classnum)
-		self.set("root_item(6212)", root_item)
-		return root_item
-
-	def set_WH(self, w, h):
-		self.set(6232, w).set(6233, h)
-		return self
