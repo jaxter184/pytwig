@@ -7,12 +7,13 @@ import extract_field_lists as e
 # This script creates a clip from scratch
 
 if __name__ == "__main__":
-	# Create a BW_File object, then populate its contents by reading from the file
+	# Create objects and set variables
 	ppcrn = c.BW_Clip_File()
 	ppcrn.set_header('BtWg00010002008c000015120000000000000000')
-	# Make objects
 	c.DEFAULT_NOTE_LENGTH = 0.1
 	clip = c.Note_Clip()
+
+	# Draw notes
 	root_note = 67
 	for i in range(2):
 		offset = float(i*4)
@@ -36,12 +37,13 @@ if __name__ == "__main__":
 	clip.add_note(root_note+ 8, 14.5)
 	clip.add_note(root_note+12, 15.0)
 
+	# Set clip length
 	#clip.set_loop(True, 5)
 	clip.set_duration(16)
-	#clip.get(648).get(1180).get(6347)[-1].set(238, 60)
 
+	# Set the clip length
 	ppcrn.set_clip(clip)
 
 	# Write the file in both human-readable json and compressed bytecode formats
-	ppcrn.export('ppcrn json.bwclip')
-	ppcrn.write('ppcrn.bwclip')
+	ppcrn.export('output/ppcrn json.bwclip')
+	ppcrn.write('output/ppcrn.bwclip')

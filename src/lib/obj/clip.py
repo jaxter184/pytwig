@@ -20,11 +20,6 @@ class Clip(bwobj.BW_Object): #abstract
 	def set_duration(self, length):
 		length = float(length)
 		self.set(38, length)
-		try:
-			end = self.get(648).get(2447).get(2444).get(687) + length
-			self.get(648).get(2447).get(2445).set(687, end)
-		except:
-			pass
 		return self
 
 	def set_loop(self, enable = None, length = None):
@@ -40,6 +35,13 @@ class Note_Clip(Clip):
 		self.set(648, bwobj.BW_Object(191))
 		self.get(648).set(1180, bwobj.BW_Object(1740))
 		self.set_duration(length)
+
+	def set_duration(self, length):
+		length = float(length)
+		self.set(38, length)
+		end = self.get(648).get(2447).get(2444).get(687) + length
+		self.get(648).get(2447).get(2445).set(687, end)
+		return self
 
 	def add_note(self, key, pos, dur = None, vel = 100):
 		if dur == None:
