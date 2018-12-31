@@ -1,5 +1,5 @@
 # All classes regarding bitwig files
-from src.lib.obj import bwobj, objects
+from src.lib.obj import bwobj, objects, bwmeta
 from collections import OrderedDict
 from src.lib.util import *
 
@@ -10,12 +10,11 @@ class BW_File:
 		self.bytecode = None
 		if type == None:
 			self.header = ''
-			self.meta = objects.BW_Meta(None)
+			self.meta = bwmeta.BW_Meta(None)
 			self.contents = objects.Contents(None)
 			return
 		self.header = 'BtWgXXXXX'
-		self.meta = objects.BW_Meta('application/bitwig-' + type)
-		self.meta.data = OrderedDict(sorted(self.meta.data.items(), key=lambda t: t[0])) # Sorts the dict. CLEAN: maybe put this somewhere else?
+		self.meta = bwmeta.BW_Meta('application/bitwig-' + type)
 		self.contents = None
 
 	def __str__(self):
@@ -36,7 +35,7 @@ class BW_File:
 		Returns:
 			BW_File: self is returned so the function can be daisy-chained
 		"""
-		if not (value[:4] == 'BtWg' and value[4:].isdigit() and len(value) == 40):
+		if not (value[:4] == 'BtWg' and int(value[4:],16) and len(value) == 40):
 			raise TypeError('"{}" is not a valid header'.format(value))
 		else:
 			self.header = value
@@ -65,7 +64,11 @@ class BW_File:
 
 	def set_description(self, value):
 		self.meta.data['device_description'] = value
-		self.contents.data['description'] = value
+		#self.contents.data['description'] = value
+		return self
+
+	def set_version(self, value):
+		self.meta.data['application_version_name'] = value
 		return self
 
 	def serialize(self):
@@ -117,13 +120,18 @@ class BW_File:
 			print(self.header)
 			raise TypeError('"' + self.header + '" is not a valid header')
 
+	def set_meta(self):
+		pass
+
 	def write(self, path, json = False):
+		self.set_meta()
 		from src.lib import fs
 		bytecode = BW_Bytecode()
 		self.encode_to(bytecode)
 		fs.write_binary(path, bytecode.contents)
 
 	def export(self, path):
+		self.set_meta()
 		from src.lib import fs
 		fs.write(path, self.serialize().replace('":', '" :'))
 
@@ -132,7 +140,7 @@ class BW_File:
 		bytecode = BW_Bytecode().set_contents(fs.read_binary(path))
 		bytecode.raw = raw
 		bytecode.debug_obj = self
-		self.num_spaces = 1
+		self.num_spaces = 0
 		self.decode(bytecode, meta_only = meta_only)
 
 class BW_Collection():

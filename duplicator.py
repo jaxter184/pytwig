@@ -14,11 +14,11 @@ DEBUG = False
 if __name__ == "__main__":
 	# Separate file extension from file name
 	import os
-	name, extension = os.path.splittext(filename)
+	name, extension = os.path.splitext(filename)
 
 	# Create a BW_File object, then populate its contents by reading from the file
 	test = bwfile.BW_File()
-	test.read('input/{}.{}'.format(name, extension))
+	test.read('input/{}{}'.format(name, extension))
 
 	if DEBUG:
 		from src.lib.luts import non_overlap
@@ -33,5 +33,5 @@ if __name__ == "__main__":
 				file.write(str(non_overlap.confirmed_fields).replace(", ",",\n"))
 
 	# Write the file in both human-readable json and compressed bytecode formats
-	test.export('output/{} dup json.{}'.format(name, extension))
-	test.write('output/{} dup.{}'.format(name, extension))
+	test.export('output/{} dup json{}'.format(name, extension))
+	test.write('output/{} dup{}'.format(name, extension))

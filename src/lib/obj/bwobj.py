@@ -3,10 +3,13 @@
 
 from collections import OrderedDict
 from src.lib.util import *
-from src.lib.luts import typeLists, names, non_overlap
+from src.lib.luts import names, non_overlap
 from src.lib import color, route
 import uuid
 import struct
+
+def make(classnum):
+	return BW_Object(classnum)
 
 serialized = [None]
 import json
@@ -69,7 +72,7 @@ class BW_Object():
 			for each_field in typeLists.class_type_list[self.classnum]:
 				if each_field in names.field_names:
 					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-					self.data[fieldname] = typeLists.get_default(each_field)
+					self.data[fieldname] = get_field_default(each_field)
 				else:
 					fieldname = "missing_field({})".format(each_field)
 					self.data[fieldname] = None
@@ -106,6 +109,23 @@ class BW_Object():
 		if not key in self.data:
 			raise KeyError()
 		self.data[key] = val
+		return self
+
+	def set_default(self, key):
+		"""Sets a field in the object's data dictionary to its type's default value
+
+		Args:
+			key (str): The key of the data field that is being set.
+			key (int): The classnum to be converted to the key of the data field that is being set.
+
+		Returns:
+			Abstract_Serializable_BW_Object: self is returned so the function can be daisy-chained
+		"""
+		if isinstance(key, int):
+			key = names.field_names[key] + '(' + str(key) + ')'
+		if not key in self.data:
+			raise KeyError()
+		self.data[key] = get_field_default(extract_num(key))
 		return self
 
 	def set_multi(self, dict):
@@ -266,7 +286,6 @@ class BW_Object():
 				val.append(each_object)
 			bytecode.increment_position(4)
 		elif parse_type == 0x14:	#map string
-			#field += 'type : "map<string,object>",\n' + 'data :\n' + '{\n'
 			val = {"type": '', "data": {}}
 			string = ''
 			val["type"] = "map<string,object>"
@@ -276,6 +295,7 @@ class BW_Object():
 					string = bytecode.read_str()
 					val["data"][string] = BW_Object.decode(bytecode)
 				else:
+					raise TypeError("Unknown type in map<string,?>: {}".format(sub_parse_type))
 					val["type"] = "unknown"
 				sub_parse_type = bytecode.read_int(1)
 		elif parse_type == 0x15:	#UUID
@@ -283,7 +303,7 @@ class BW_Object():
 		elif parse_type == 0x16:	#color
 			flVals = struct.unpack('>ffff', bytecode.read(16))
 			val = color.Color(*flVals)
-		elif parse_type == 0x17:	#float array (never been used before)
+		elif parse_type == 0x17:	#float array
 			arr_len = bytecode.read_int()
 			val = []
 			for i in range(arr_len):
@@ -423,8 +443,11 @@ class BW_Object():
 					bytecode.write('00000003')
 				elif typeLists.field_type_list[fieldNum] == 0x15:
 					bytecode.write('15')
-					placeholder = uuid.UUID(value)
-					bytecode.write(placeholder.bytes)
+					if isinstance(value, str):
+						value = uuid.UUID(value)
+					elif not isinstance(value, uuid.UUID):
+						raise TypeError("encoding a non-uuid value as a uuid: {}".format(value))
+					bytecode.write(value.bytes)
 				elif typeLists.field_type_list[fieldNum] == 0x16:
 					bytecode.write('16')
 					bytecode.write(value.encode()) # maybe I should change this to work how objects do?
@@ -432,7 +455,7 @@ class BW_Object():
 					bytecode.write('17')
 					bytecode.write_int(len(value), 8)
 					for item in value:
-						flVal = hex(struct.unpack('<I', struct.pack('<f', item))[0])[2:]
+						flVal = struct.unpack('<I', struct.pack('<f', item))[0]
 						bytecode.write_int(flVal,8)
 				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
 					bytecode.write('19')

@@ -75,3 +75,38 @@ def extract_num(name):
 
 def btoi(byte):
 	return int.from_bytes(byte, byteorder='big')
+
+import uuid
+from src.lib.luts import typeLists, defaults
+from src.lib.obj import bwobj
+from src.lib import color
+#TODO make type list for each version
+
+null_defaults = {
+	1:0,
+	5:False,
+	6:0.0,
+	7:0.0,
+	8:'',
+	9:None,
+}
+
+def get_field_default(fieldnum):
+	type = typeLists.field_type_list[fieldnum]
+	if fieldnum in defaults.defaults:
+		if type == 9:
+			return bwobj.BW_Object(defaults.defaults[fieldnum])
+		elif type == 0x12:
+			return [bwobj.BW_Object(defaults.defaults[fieldnum])]
+		return defaults.defaults[fieldnum]
+	#else:
+	if type in (0x12, 0x17, 0x19): # object list
+		return []
+	elif type == 0x14:
+		return {"type": "map<string,object>", "data": {}}
+	elif type == 0x15:
+		return uuid.uuid4()
+	elif type == 0x16:
+		return color.Color(0.5,0.5,0.5,1)
+	else:
+		return null_defaults[type]
