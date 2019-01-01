@@ -219,13 +219,11 @@ class BW_Object():
 		"""Helper function for reading a field's value from Bitwig bytecode.
 
 		Args:
-			bytecode (bytes): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
+			bytecode (BW_Bytecode): Bytecode to be parsed.
 			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
-			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
 
 		Returns:
-			bytes: Passes back the remaining bytecode to be parsed
-			Any: The input bytecode with the encoded field appended to the end
+			Any: The decoded value
 		"""
 		bytecode.increment_position(-4)
 		field_num = bytecode.read_int()
@@ -344,11 +342,8 @@ class BW_Object():
 		"""Helper function for recursively serializing Bitwig objects into Bitwig bytecode.
 
 		Args:
-			bytecode (bytes): Current bytecode to suffix the encoded field onto and output. TODO: consider turning this into its own object so it only has to be passed in and not returned.
+			bytecode (BW_Bytecode): Current bytecode to add the encoded field onto
 			field (str): Key of the field of this object's data dictionary to be encoded into Bitwig bytecode
-
-		Returns:
-			bytes: The input bytecode with the encoded field appended to the end.
 		"""
 		value = self.data[field]
 		fieldNum = extract_num(field)
@@ -487,9 +482,8 @@ class BW_Object():
 		"""Helper function for iteratively reading all of an object's fields from Bitwig bytecode
 
 		Args:
-			bytecode (bytes): Bytecode to be parsed. TODO: consider turning this into its own object so it only has to be passed in and not returned
+			bytecode (BW_Bytecode): Bytecode to be parsed
 			obj_list (list): List of objects that are currently in the file. Used to pass on to self.decode_object() so it can parse references.
-			raw (bool): Passes a variable through to object decoders that decides whether or not to use the field template lookup tables. TODO: add this
 
 		Returns:
 			bytes: Passes back the remaining bytecode to be parsed

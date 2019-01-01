@@ -105,7 +105,7 @@ class BW_File:
 			if self.header[11] == '2' or self.header[11] == '0':
 				bytecode.set_string_mode(self.header[11])
 				self.meta.decode(bytecode)
-				while bytecode.read_int(1) == 0x20: #TODO: change to != 0x0a
+				while bytecode.read_int(1) != 0x0a:
 					self.num_spaces += 1 # for debug purposes
 					pass
 				print("spaces count: " + str(self.num_spaces))

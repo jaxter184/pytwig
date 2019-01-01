@@ -4174,7 +4174,7 @@ field_names = {
 	3630: 'set_modulation_mapping',
 	3631: 'clear_modulation_mapping',
 	3632: 'clear_modulation_mappings',
-	3633: 'missing_field_remote_controls', #TODO: find actual name
+	3633: 'missing_field_remote_controls',
 	3634: 'amount',
 	3635: 'source',
 	3636: 'clip_timeline_edited',
