@@ -1,5 +1,5 @@
 import struct
-from src.lib import util
+from pytwig.src.lib import util
 
 class Color():
 	"""Data storage object that contains parameters for Bitwig colors.
@@ -40,7 +40,7 @@ class Color():
 		count = 0
 		for item in self.data:
 			flVal = struct.unpack('>I', struct.pack('>f', item))[0]
-			output += util.hexPad(flVal,8)
+			output += util.hex_pad(flVal,8)
 			count += 1
 		if count == 3:
 			output += struct.pack('>f', 1.0)

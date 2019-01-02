@@ -1,15 +1,17 @@
-# Class declarations of most Bitwig objects that arent Atoms, like contents
+# Class declarations of most Bitwig objects that arent atoms, like contents
 
 from collections import OrderedDict
-from src.lib.util import *
-from src.lib.luts import typeLists
-from src.lib.obj import bwobj, atoms, panel_items
+from pytwig.src.lib.util import *
+from pytwig.src.lib.luts import typeLists
+from pytwig import object as bwobj
+from pytwig import atom as bwatom
+from pytwig import panrl as bwpanel
 
 class Contents(bwobj.BW_Object):
 	def add_atom(self, field, obj):
 		if isinstance(obj, int):
-			child = atoms.Atom(obj)
-		elif isinstance(obj, atoms.Atom):
+			child = bwatom.Atom(obj)
+		elif isinstance(obj, bwatom.Atom):
 			child = obj
 		else:
 			raise TypeError("adding something thats not an atom")
@@ -20,9 +22,9 @@ class Contents(bwobj.BW_Object):
 		return child
 
 	def add_child(self, obj):
-		#child = atoms.Atom(classnum)
+		#child = bwatom.Atom(classnum)
 		#self.get(173).append(child)
-		if isinstance(obj, atoms.Atom):
+		if isinstance(obj, bwatom.Atom):
 			return self.add_atom(173, obj)
 		elif isinstance(obj, list):
 			for i in obj:
@@ -30,7 +32,7 @@ class Contents(bwobj.BW_Object):
 			return None
 
 	def add_panel(self, classnum):
-		panel = Panel(classnum)
+		panel = bwpanel.Panel(classnum)
 		self.get(6213).append(panel)
 		return panel
 
@@ -38,8 +40,8 @@ class Contents(bwobj.BW_Object):
 		if isinstance(obj, int):
 			if not obj in (50, 154):
 				raise TypeError()
-			proxy = atoms.Proxy_Port(obj)
-		elif isinstance(obj, atoms.Atom):
+			proxy = bwatom.Proxy_Port(obj)
+		elif isinstance(obj, bwatom.Atom):
 			proxy = obj
 		if dir == 'in':
 			self.get(177).append(proxy)
@@ -47,15 +49,5 @@ class Contents(bwobj.BW_Object):
 			self.get(178).append(proxy)
 		return proxy
 
-
-class Panel(bwobj.BW_Object):
-	def set_root_item(self, classnum):
-		root_item = panel_items.Panel_Item(classnum)
-		self.set("root_item(6212)", root_item)
-		return root_item
-
-	def set_WH(self, w, h):
-		self.set(6232, w).set(6233, h)
-		return self
 
 #TODO make sub object for values

@@ -2,11 +2,11 @@
 # Some content taken from stylemistake's Bitwig modulator stuff https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib.util import *
-from src.lib.luts import names, non_overlap
-from src.lib import color, route
-import uuid
-import struct
+import uuid, struct
+from pytwig.src.lib import util
+from pytwig.src.lib.luts import names, non_overlap, field_lists
+from pytwig import color, route
+from pytwig import file as bwfile
 
 def make(classnum):
 	return BW_Object(classnum)
@@ -20,7 +20,6 @@ class BW_Serializer(json.JSONEncoder):
 		#	return "poop"
 		#print(obj)
 		#print("debug")
-		from src.lib import bwfile
 		if isinstance(obj, BW_Object):
 			#print(serialized)
 			if obj in serialized:
@@ -67,12 +66,12 @@ class BW_Object():
 			self.classnum = classnum
 		elif isinstance(classnum, str):
 			self.classname = classnum
-			self.classnum = extract_num(classnum)
-		if self.classnum in typeLists.class_type_list:
-			for each_field in typeLists.class_type_list[self.classnum]:
+			self.classnum = util.extract_num(classnum)
+		if self.classnum in field_lists.class_type_list:
+			for each_field in field_lists.class_type_list[self.classnum]:
 				if each_field in names.field_names:
 					fieldname = names.field_names[each_field] + '(' + str(each_field) + ')'
-					self.data[fieldname] = get_field_default(each_field)
+					self.data[fieldname] = util.get_field_default(each_field)
 				else:
 					fieldname = "missing_field({})".format(each_field)
 					self.data[fieldname] = None
@@ -125,7 +124,7 @@ class BW_Object():
 			key = names.field_names[key] + '(' + str(key) + ')'
 		if not key in self.data:
 			raise KeyError()
-		self.data[key] = get_field_default(extract_num(key))
+		self.data[key] = get_field_default(util.extract_num(key))
 		return self
 
 	def set_multi(self, dict):
@@ -166,7 +165,7 @@ class BW_Object():
 
 		for each_field in self.data:
 			each_value = self.data[each_field]
-			if extract_num(each_field) in (153, ):
+			if util.extract_num(each_field) in (153, ):
 				if each_value not in output:
 					output.append(each_value)
 			elif isinstance(each_value, BW_Object):
@@ -227,8 +226,8 @@ class BW_Object():
 		"""
 		bytecode.increment_position(-4)
 		field_num = bytecode.read_int()
-		if (not field_num in typeLists.field_type_list and not field_num in non_overlap.confirmed_fields):
-			non_overlap.confirmed_fields[field_num] = btoi(bytecode.peek(1))
+		if (not field_num in field_lists.field_type_list and not field_num in non_overlap.confirmed_fields):
+			non_overlap.confirmed_fields[field_num] = util.btoi(bytecode.peek(1))
 
 		#print(bytecode[:80])
 		parse_type = bytecode.read_int(1)
@@ -268,7 +267,6 @@ class BW_Object():
 			else:
 				val = bytecode.obj_list[obj_num]
 		elif parse_type == 0x0d:	#file
-			from src.lib import bwfile
 			file_len = bytecode.read_int()
 			if file_len == 16:
 				val = bytecode.read(16)
@@ -346,12 +344,12 @@ class BW_Object():
 			field (str): Key of the field of this object's data dictionary to be encoded into Bitwig bytecode
 		"""
 		value = self.data[field]
-		fieldNum = extract_num(field)
+		fieldNum = util.extract_num(field)
 		if value == None:
 			bytecode.write('0a')
 		else:
-			if fieldNum in typeLists.field_type_list:
-				if typeLists.field_type_list[fieldNum] == 0x01:
+			if fieldNum in field_lists.field_type_list:
+				if field_lists.field_type_list[fieldNum] == 0x01:
 					if value <= 127 and value >= -128:
 						bytecode.write('01')
 						if value < 0:
@@ -376,22 +374,22 @@ class BW_Object():
 							bytecode.write(hex(0xFFFFFFFFFFFFFFFF + value + 1)[2:])
 						else:
 							bytecode.write_int(value, 16)
-				elif typeLists.field_type_list[fieldNum] == 0x05:
+				elif field_lists.field_type_list[fieldNum] == 0x05:
 					bytecode.write('05')
 					bytecode.write('01' if value else '00')
-				elif typeLists.field_type_list[fieldNum] == 0x06:
+				elif field_lists.field_type_list[fieldNum] == 0x06:
 					flVal = struct.unpack('<I', struct.pack('<f', value))[0]
 					bytecode.write('06')
 					bytecode.write_int(flVal,8)
-				elif typeLists.field_type_list[fieldNum] == 0x07:
+				elif field_lists.field_type_list[fieldNum] == 0x07:
 					dbVal = struct.unpack('<Q', struct.pack('<d', value))[0]
 					bytecode.write('07')
 					bytecode.write_int(dbVal,16)
-				elif typeLists.field_type_list[fieldNum] == 0x08:
+				elif field_lists.field_type_list[fieldNum] == 0x08:
 					bytecode.write('08')
 					value = value.replace('\\n', '\n')
 					bytecode.write_str(value)
-				elif typeLists.field_type_list[fieldNum] in (0x09, 0x14):
+				elif field_lists.field_type_list[fieldNum] in (0x09, 0x14):
 					if isinstance(value, BW_Object):
 						if value in bytecode.obj_list:
 							bytecode.write('0b')
@@ -410,9 +408,8 @@ class BW_Object():
 								bytecode.write_str(key)
 								value["data"][key].encode_to(bytecode)
 						bytecode.write('00')
-				elif typeLists.field_type_list[fieldNum] == 0x0d:
+				elif field_lists.field_type_list[fieldNum] == 0x0d:
 					bytecode.write('0d')
-					from src.lib import bwfile
 					if isinstance(value, bwfile.BW_File):
 						sub_bytecode = bwfile.BW_Bytecode()
 						#sub_bytecode.set_string_mode("NULL_TERMINATED")
@@ -424,7 +421,7 @@ class BW_Object():
 						bytecode.write(value)
 					else:
 						raise TypeError("invalid structure type")
-				elif typeLists.field_type_list[fieldNum] == 0x12:
+				elif field_lists.field_type_list[fieldNum] == 0x12:
 					bytecode.write('12')
 					for item in value:
 						if isinstance(item, BW_Object):
@@ -436,29 +433,29 @@ class BW_Object():
 						else:
 							print("something went wrong in objects.py: \'not object list\'")
 					bytecode.write('00000003')
-				elif typeLists.field_type_list[fieldNum] == 0x15:
+				elif field_lists.field_type_list[fieldNum] == 0x15:
 					bytecode.write('15')
 					if isinstance(value, str):
 						value = uuid.UUID(value)
 					elif not isinstance(value, uuid.UUID):
 						raise TypeError("encoding a non-uuid value as a uuid: {}".format(value))
 					bytecode.write(value.bytes)
-				elif typeLists.field_type_list[fieldNum] == 0x16:
+				elif field_lists.field_type_list[fieldNum] == 0x16:
 					bytecode.write('16')
 					bytecode.write(value.encode()) # maybe I should change this to work how objects do?
-				elif typeLists.field_type_list[fieldNum] == 0x17:
+				elif field_lists.field_type_list[fieldNum] == 0x17:
 					bytecode.write('17')
 					bytecode.write_int(len(value), 8)
 					for item in value:
 						flVal = struct.unpack('<I', struct.pack('<f', item))[0]
 						bytecode.write_int(flVal,8)
-				elif typeLists.field_type_list[fieldNum] == 0x19: #string array
+				elif field_lists.field_type_list[fieldNum] == 0x19: #string array
 					bytecode.write('19')
 					bytecode.write_int(len(value), 8)
 					for each_str in value:
 						each_str = each_str.replace('\\n', '\n')
 						bytecode.write_str(each_str)
-				elif typeLists.field_type_list[fieldNum] == 0x1a: # route
+				elif field_lists.field_type_list[fieldNum] == 0x1a: # route
 					bytecode.write('1a')
 					if 'obj' in value.data:
 						#bytecode.write_int(0x90)
@@ -469,13 +466,13 @@ class BW_Object():
 					if 'str' in value.data:
 						bytecode.write_str(value.data["str"])
 				else:
-					if typeLists.field_type_list[fieldNum] == None:
+					if field_lists.field_type_list[fieldNum] == None:
 						print("skipped in binary serialization: {}".format(fieldNum))
 						pass
 					else:
-						print("jaxter stop being a lazy nerd and " + hex(typeLists.field_type_list[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
+						print("jaxter stop being a lazy nerd and " + hex(field_lists.field_type_list[fieldNum]) + " to the atom encoder. obj: " + str(fieldNum))
 			else:
-				print("missing type in typeLists.field_type_list: {}".format(fieldNum))
+				print("missing type in field_lists.field_type_list: {}".format(fieldNum))
 		return
 
 	def decode_fields(self, bytecode):
@@ -516,7 +513,7 @@ class BW_Object():
 			if bytecode.raw:
 				obj = BW_Object()
 				obj.data = OrderedDict()
-				from src.lib.luts import names
+				from pytwig.src.lib.luts import names
 				if obj_num in names.class_names:
 					obj.classname =  "{}({})".format(names.class_names[obj_num],obj_num)
 				else:
@@ -531,9 +528,9 @@ class BW_Object():
 
 	def encode_to(self, bytecode):
 		bytecode.obj_list.append(self)
-		bytecode.write(hexPad(self.classnum,8))
+		bytecode.write(util.hex_pad(self.classnum,8))
 		for each_field in self.data:
-			bytecode.write(hexPad(extract_num(each_field),8))
+			bytecode.write(util.hex_pad(util.extract_num(each_field),8))
 			self.encode_field(bytecode, each_field)
 		bytecode.write('00000000')
 

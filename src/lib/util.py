@@ -53,7 +53,7 @@ def uuid_from_text(text):
 # removed: def serialize_bitwig_device(device):
 
 # Adds leading 0s to a hex value
-def hexPad(data, pad = 8):
+def hex_pad(data, pad = 8):
 	if isinstance(data, bytes):
 		return bytes.fromhex((pad/2-len(value))*'00') + data
 	elif isinstance(data, int):
@@ -77,9 +77,9 @@ def btoi(byte):
 	return int.from_bytes(byte, byteorder='big')
 
 import uuid
-from src.lib.luts import typeLists, defaults
-from src.lib.obj import bwobj
-from src.lib import color
+from pytwig.src.lib.luts import field_lists, defaults
+from pytwig import object as bwobj
+from pytwig import color as bwcol
 #TODO make type list for each version
 
 null_defaults = {
@@ -92,7 +92,7 @@ null_defaults = {
 }
 
 def get_field_default(fieldnum):
-	type = typeLists.field_type_list[fieldnum]
+	type = field_lists.field_type_list[fieldnum]
 	if fieldnum in defaults.defaults:
 		if type == 9:
 			return bwobj.BW_Object(defaults.defaults[fieldnum])
@@ -107,6 +107,6 @@ def get_field_default(fieldnum):
 	elif type == 0x15:
 		return uuid.uuid4()
 	elif type == 0x16:
-		return color.Color(0.5,0.5,0.5,1)
+		return bwcol.Color(0.5,0.5,0.5,1)
 	else:
 		return null_defaults[type]

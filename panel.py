@@ -2,8 +2,18 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib.obj import bwobj
-from src.lib.luts import typeLists
+from pytwig.src.lib.luts import typeLists
+import object as bwobj
+
+class Panel(bwobj.BW_Object):
+	def set_root_item(self, classnum):
+		root_item = Panel_Item(classnum)
+		self.set("root_item(6212)", root_item)
+		return root_item
+
+	def set_WH(self, w, h):
+		self.set(6232, w).set(6233, h)
+		return self
 
 class Panel_Item(bwobj.BW_Object):
 	def __init__(self, classnum = None, fields = None):

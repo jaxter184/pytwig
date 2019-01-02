@@ -1,5 +1,5 @@
-from src.lib.obj import bwobj
-from src.lib import bwfile
+import pytwig.file as bwfile
+import pytwig.object as bwobj
 
 DEFAULT_NOTE_LENGTH = 0.5
 

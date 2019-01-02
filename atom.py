@@ -2,8 +2,8 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from src.lib.obj import bwobj
-from src.lib.luts import typeLists
+from pytwig.src.lib.luts import field_lists
+from pytwig import object as bwobj
 #import uuid, struct, json
 
 class Atom(bwobj.BW_Object):
