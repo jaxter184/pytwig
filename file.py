@@ -6,7 +6,7 @@ from pytwig import object as bwobj
 
 class BW_File:
 	def __init__(self, type = None):
-		self.num_spaces = 0
+		#self.num_spaces = 0
 		self.bytecode = None
 		if type == None:
 			self.header = ''
@@ -92,7 +92,7 @@ class BW_File:
 			raise SyntaxError("Invalid string mode")
 		bytecode.write(bytes(self.header[:11] + str_byte + self.header[12:], "utf-8"))
 		self.meta.encode_to(bytecode)
-		bytecode.write(bytes(' '*self.num_spaces , "utf-8")) # for debug purposes
+		#bytecode.write(bytes(' '*self.num_spaces , "utf-8")) # for debug purposes
 		bytecode.write(bytes('\n', "utf-8"))
 		self.contents.encode_to(bytecode)
 
@@ -106,9 +106,9 @@ class BW_File:
 				bytecode.set_string_mode(self.header[11])
 				self.meta.decode(bytecode)
 				while bytecode.read_int(1) != 0x0a:
-					self.num_spaces += 1 # for debug purposes
 					pass
-				print("spaces count: " + str(self.num_spaces))
+				#	self.num_spaces += 1 # for debug purposes
+				#print("spaces count: " + str(self.num_spaces))
 				if meta_only:
 					return;
 				self.contents = bwobj.BW_Object.decode(bytecode)
@@ -140,7 +140,7 @@ class BW_File:
 		bytecode = BW_Bytecode().set_contents(fs.read_binary(path))
 		bytecode.raw = raw
 		bytecode.debug_obj = self
-		self.num_spaces = 0
+		#self.num_spaces = 0
 		self.decode(bytecode, meta_only = meta_only)
 
 # Templates for meta data in the case that the file is created from scratch.

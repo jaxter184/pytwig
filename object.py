@@ -12,14 +12,14 @@ def make(classnum):
 	return BW_Object(classnum)
 
 serialized = [None]
+passed = []
 import json
+
+# As far as I can tell, circular references are when an object is its own (grand+) child. Not sure exactly how to fix this, but for now, I'm going to use physicla modelled drums.
+
 class BW_Serializer(json.JSONEncoder):
 	def default(self, obj):
-		#if str(obj) in ('browsing_session_state_preset(1663)',):
-		#	print("Debug")
-		#	return "poop"
 		#print(obj)
-		#print("debug")
 		if isinstance(obj, BW_Object):
 			#print(serialized)
 			if obj in serialized:
@@ -106,7 +106,7 @@ class BW_Object():
 		if isinstance(key, int):
 			key = names.field_names[key] + '(' + str(key) + ')'
 		if not key in self.data:
-			raise KeyError()
+			raise KeyError("{}, {}".format(self.data, key))
 		self.data[key] = val
 		return self
 
@@ -227,7 +227,19 @@ class BW_Object():
 		bytecode.increment_position(-4)
 		field_num = bytecode.read_int()
 		if (not field_num in field_lists.field_type_list and not field_num in non_overlap.confirmed_fields):
-			non_overlap.confirmed_fields[field_num] = util.btoi(bytecode.peek(1))
+			pass_over = False
+			value = util.btoi(bytecode.peek(1))
+			if not value in (1,5,7,8,9,18,21,25,):
+				if value in (2,3,4,):
+					value = 1
+				elif value == 11:
+					value = 9
+				elif value == 10:
+					pass_over = True
+				else:
+					raise TypeError("So I was writing a new field default type, right? but out of nowhere, there's this weird number I've never seen before: {}".format(value))
+			if not pass_over:
+				non_overlap.confirmed_fields[field_num] = value
 
 		#print(bytecode[:80])
 		parse_type = bytecode.read_int(1)
@@ -270,6 +282,7 @@ class BW_Object():
 			file_len = bytecode.read_int()
 			if file_len == 16:
 				val = bytecode.read(16)
+				#val = None
 			else:
 				val = bwfile.BW_File()
 				sub_bytecode = bwfile.BW_Bytecode()
@@ -317,7 +330,7 @@ class BW_Object():
 				obj = BW_Object.decode(bytecode)
 				val.data['obj'] = obj
 				val.data['str'] = bytecode.read_str()
-			elif sub_parse == 0x01:
+			elif sub_parse == 0x01: # probably means its a reference
 				val = route.Route()
 				val.data['int'] = bytecode.read_int()
 				val.data['str'] = bytecode.read_str()
@@ -416,6 +429,7 @@ class BW_Object():
 						value.encode_to(sub_bytecode)
 						bytecode.write_int(sub_bytecode.contents_len)
 						bytecode.write(sub_bytecode.contents)
+
 					elif isinstance(value, bytes):
 						bytecode.write_int(len(value))
 						bytecode.write(value)
@@ -501,10 +515,10 @@ class BW_Object():
 		"""Helper function for recursively reading Bitwig objects from Bitwig bytecode.
 
 		Args:
-			bytecode (bytes): Bytecode to be parsed.
+			bytecode (BW_Bytecode): Bytecode to be parsed.
 
 		Returns:
-			bytes: Passes back the remaining bytecode to be parsed
+			BW_Object: Result of parsing
 		"""
 		obj_num = bytecode.read_int()
 		if obj_num == 0x1: #object references

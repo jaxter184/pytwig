@@ -80,6 +80,7 @@ import uuid
 from pytwig.src.lib.luts import field_lists, defaults
 from pytwig import object as bwobj
 from pytwig import color as bwcol
+from pytwig import route as bwroute
 #TODO make type list for each version
 
 null_defaults = {
@@ -108,5 +109,7 @@ def get_field_default(fieldnum):
 		return uuid.uuid4()
 	elif type == 0x16:
 		return bwcol.Color(0.5,0.5,0.5,1)
+	elif type == 0x1a:
+		return bwroute.Route()
 	else:
 		return null_defaults[type]

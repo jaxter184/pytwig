@@ -5,7 +5,7 @@ defaults = {
 	#96:149, # can be None
 	#248:-1,
 	350:30,
-	#356:138,
+	#356:138, # can be None? but also can be instantiated and it will be ignored
 	561:227,
 	659:109,
 	1245:477, # can be None, I think
@@ -32,6 +32,7 @@ defaults = {
 	2727:True, # not necessary
 	3070:True, # not necessary
 	3021:True, # not necessary
+	4991:True, # not necessary, but a nice thing to do
 	4992:True, # not necessary
 	6309:True,
 	6310:True,

@@ -4,17 +4,28 @@ import pytwig.object as bwobj
 DEFAULT_NOTE_LENGTH = 0.5
 
 class BW_Clip_File(bwfile.BW_File):
-	def __init__(self):
+	def __init__(self, track = None):
 		super().__init__('note-clip')
 		document = bwobj.BW_Object(46)
-		document.get("track_group(1245)").get("main_tracks(1246)").append(bwobj.BW_Object(144))
+		if track != None:
+			document.get("track_group(1245)").get("main_tracks(1246)").append(track)
 		self.contents = bwobj.BW_Object("clip_document(479)").set("document(2409)", document)
 
-	def set_clip(self, clip):
-		self.contents.get(2409).get(1245).get(1246)[0].get(350).get(561)[0].set(576, clip)
+	#def set_main_clip(self, clip):
+	#	self.get_main_track().set_main_clip(clip)
 
 	def set_meta(self):
 		self.meta.data['beat_length'] = 1.0
+
+	def get_main_track(self):
+		if len(self.contents.get(2409).get(1245).get(1246)) == 0:
+			print("No main tracks in clip file")
+			return None
+		return self.contents.get(2409).get(1245).get(1246)[0]
+
+	def set_main_track(self, track):
+		self.contents.get(2409).get(1245).get(1246).insert(0, track)
+		return self
 
 class Clip(bwobj.BW_Object): #abstract
 	def set_duration(self, length):
