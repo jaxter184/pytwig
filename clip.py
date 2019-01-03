@@ -11,9 +11,6 @@ class BW_Clip_File(bwfile.BW_File):
 			document.get("track_group(1245)").get("main_tracks(1246)").append(track)
 		self.contents = bwobj.BW_Object("clip_document(479)").set("document(2409)", document)
 
-	#def set_main_clip(self, clip):
-	#	self.get_main_track().set_main_clip(clip)
-
 	def set_meta(self):
 		self.meta.data['beat_length'] = 1.0
 
