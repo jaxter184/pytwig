@@ -229,9 +229,11 @@ class BW_Object():
 		if (not field_num in field_lists.field_type_list and not field_num in non_overlap.confirmed_fields):
 			pass_over = False
 			value = util.btoi(bytecode.peek(1))
-			if not value in (1,5,7,8,9,18,21,25,):
+			if not value in (1,5,7,8,9,13,18,21,25,): #13 maybe shouldn't be in this list
 				if value in (2,3,4,):
 					value = 1
+				elif value == 6:
+					value = 7
 				elif value == 11:
 					value = 9
 				elif value == 10:
