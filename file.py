@@ -71,6 +71,14 @@ class BW_File:
 		self.meta.data['application_version_name'] = value
 		return self
 
+	def __dict__(self):
+		"""Serializes the object into a json format.
+
+		Returns:
+			Any: Returns a string containing the json data representing the object.
+		"""
+		return dict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
+
 	def serialize(self):
 		bwobj.serialized = [None]
 		output = self.header[:11] + '1' + self.header[12:]

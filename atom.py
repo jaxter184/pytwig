@@ -14,7 +14,7 @@ class Atom(bwobj.BW_Object):
 			self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
 			self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
 			return
-		if classnum in typeLists.class_type_list and typeLists.class_type_list[classnum][0] != 6194:
+		if classnum in field_lists.class_type_list and field_lists.class_type_list[classnum][0] != 6194:
 			raise TypeError("Non-atom initialized with atom initializer: {}".format(classnum))
 		super().__init__(classnum, fields)
 		self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")

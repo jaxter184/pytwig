@@ -550,13 +550,32 @@ class BW_Object():
 			self.encode_field(bytecode, each_field)
 		bytecode.write('00000000')
 
-	def serialize(self):
-		"""Serializes the object into a json format.
+	def iter_helper(self, obj):
+		if isinstance(obj, BW_Object) or isinstance(obj, color.Color) or isinstance(obj, route.Route):
+			return dict(obj)
+		elif isinstance(obj, list):
+			output = []
+			for i in obj:
+				output.append(self.iter_helper(i))
+			return output
+		else:
+			return obj
 
-		Returns:
-			Any: Returns a string containing the json data representing the object.
-		"""
-		return json.dumps(self, cls=BW_Serializer,indent=2)
+	def __iter__(self):
+		if self in serialized:
+			yield 'object_ref', serialized.index(self)
+		else:
+			serialized.append(self)
+			yield 'class', self.classname
+			yield 'object_id', serialized.index(self)
+			data_output = {}
+			for each_field in self.data:
+				data_output[each_field] = self.iter_helper(self.data[each_field])
+			yield 'data', data_output
+
+	def serialize(self):
+		serialized = [None]
+		return json.dumps(dict(self), indent=2)
 
 	def debug_list_fields(self):
 		"""Debug function for listing all the data fields of a Bitwig object

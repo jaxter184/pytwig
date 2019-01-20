@@ -2,8 +2,8 @@
 # author: stylemistake https://github.com/stylemistake
 
 from collections import OrderedDict
-from pytwig.src.lib.luts import typeLists
-import object as bwobj
+#from pytwig.src.lib.luts import field_lists
+from pytwig import object as bwobj
 
 class Panel(bwobj.BW_Object):
 	def set_root_item(self, classnum):

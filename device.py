@@ -2,10 +2,10 @@
 
 from collections import OrderedDict
 from pytwig.src.lib.util import *
-from pytwig.src.lib.luts import typeLists
+#from pytwig.src.lib.luts import field_lists
 from pytwig import object as bwobj
 from pytwig import atom as bwatom
-from pytwig import panrl as bwpanel
+from pytwig import panel as bwpanel
 
 class Contents(bwobj.BW_Object):
 	def add_atom(self, field, obj):

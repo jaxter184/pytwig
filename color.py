@@ -21,8 +21,12 @@ class Color():
 			self.data = self.data[:-1]
 		return
 
+	def __iter__(self):
+		yield 'type', self.type
+		yield 'data', self.data
+
 	def __repr__(self):
-	    return self.__str__()
+		return self.__str__()
 
 	def __str__(self):
 		return "Color: " + str(self.data)
