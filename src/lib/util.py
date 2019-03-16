@@ -78,7 +78,7 @@ def btoi(byte):
 
 import uuid
 from pytwig.src.lib.luts import field_lists, defaults
-from pytwig import object as bwobj
+from pytwig import bw_object
 from pytwig import color as bwcol
 from pytwig import route as bwroute
 #TODO make type list for each version
@@ -96,9 +96,9 @@ def get_field_default(fieldnum):
 	type = field_lists.field_type_list[fieldnum]
 	if fieldnum in defaults.defaults:
 		if type == 9:
-			return bwobj.BW_Object(defaults.defaults[fieldnum])
+			return bw_object.BW_Object(defaults.defaults[fieldnum])
 		elif type == 0x12:
-			return [bwobj.BW_Object(defaults.defaults[fieldnum])]
+			return [bw_object.BW_Object(defaults.defaults[fieldnum])]
 		return defaults.defaults[fieldnum]
 	#else:
 	if type in (0x12, 0x17, 0x19): # object list

@@ -32,10 +32,14 @@ defaults = {
 	2727:True, # not necessary
 	3070:True, # not necessary
 	3021:True, # not necessary
+	4433:True, # Parameter smoothing
+	4434:True, # Allow automation curves
 	4991:True, # not necessary, but a nice thing to do
 	4992:True, # not necessary
 	6309:True,
 	6310:True,
+	7489:True, # Allow automation
+	7490:True, # Allow modulation
 
 # Integers
 	4803:2,
@@ -44,4 +48,7 @@ defaults = {
 
 # Strings
 	"branch":"releases",
+
+# Floats
+	1988:-1.0 # pixel step size
 }

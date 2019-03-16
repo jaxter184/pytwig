@@ -1,7 +1,7 @@
-import pytwig.object as bwobj
+import pytwig.object as bw_obj
 import pytwig.clip as bwclip
 
-class Track(bwobj.BW_Object):
+class Track(bw_obj.BW_Object):
 	def __init__(self):
 		super().__init__(classnum = 144)
 
@@ -9,18 +9,18 @@ class Track(bwobj.BW_Object):
 		if pos < -1:
 			pos = -1
 		if self.get(356) == None:
-			self.set(356, bwobj.BW_Object(138))
+			self.set(356, bw_obj.BW_Object(138))
 		if pos == -1:
-			self.get(356).get(324).append(bwobj.BW_Object(163))
+			self.get(356).get(324).append(bw_obj.BW_Object(163))
 		elif pos >= 0:
 			maxpos = len(self.get(356).get(324))
 			if pos > maxpos:
 				pos = maxpos
-			self.get(356).get(324).insert(pos, bwobj.BW_Object(163))
+			self.get(356).get(324).insert(pos, bw_obj.BW_Object(163))
 		self.get(356).get(324)[pos].set(407, device_preset)
 
 	def set_main_clip(self, clip):
-		#self.get(350).get(561).append(bwobj.BW_Object(227))
+		#self.get(350).get(561).append(bw_obj.BW_Object(227))
 		self.get(350).get(561)[0].set(576, clip)
 		return self
 
@@ -32,16 +32,16 @@ class Track(bwobj.BW_Object):
 		if pos < -1:
 			pos = -1
 		if pos == -1:
-			self.get(350).get(561).append(bwobj.BW_Object(227))
+			self.get(350).get(561).append(bw_obj.BW_Object(227))
 		elif pos >= 0:
 			maxpos = len(self.get(1246))
 			if pos > maxpos:
 				pos = maxpos
-			self.get(350).get(561).insert(pos, bwobj.BW_Object(227))
+			self.get(350).get(561).insert(pos, bw_obj.BW_Object(227))
 		self.get(350).get(561)[pos].set(576, clip)
 		return self
 
-class Group_Track(bwobj.BW_Object):
+class Group_Track(bw_obj.BW_Object):
 	def __init__(self):
 		super().__init__(classnum = 477)
 

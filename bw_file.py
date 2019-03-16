@@ -1,7 +1,7 @@
 # All classes used by all Bitwig files
 from collections import OrderedDict
 from pytwig.src.lib import util
-from pytwig import object as bwobj
+from pytwig import bw_object
 
 
 class BW_File:
@@ -80,11 +80,11 @@ class BW_File:
 		return dict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
 
 	def serialize(self):
-		bwobj.serialized = [None]
+		bw_object.serialized = [None]
 		output = self.header[:11] + '1' + self.header[12:]
 		output += self.meta.serialize()
 		output += '\n'
-		bwobj.serialized = [None]
+		bw_object.serialized = [None]
 		output += self.contents.serialize()
 		return output
 
@@ -119,7 +119,7 @@ class BW_File:
 				#print("spaces count: " + str(self.num_spaces))
 				if meta_only:
 					return;
-				self.contents = bwobj.BW_Object.decode(bytecode)
+				self.contents = bw_object.BW_Object.decode(bytecode)
 			elif self.header[11] == '1':
 				raise TypeError('"' + self.header + '" is a json typed file')
 			else:
@@ -172,7 +172,7 @@ BW_PRESET_META_TEMPLATE = [
 BW_CLIP_META_TEMPLATE = [
 	"beat_length", "bpm", "referenced_packaged_file_ids",
 ]
-class BW_Meta(bwobj.BW_Object):
+class BW_Meta(bw_object.BW_Object):
 
 	def __init__(self, type = None):
 		self.data = OrderedDict()

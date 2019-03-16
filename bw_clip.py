@@ -1,15 +1,14 @@
-import pytwig.file as bwfile
-import pytwig.object as bwobj
+from pytwig import bw_file, bw_obj
 
 DEFAULT_NOTE_LENGTH = 0.5
 
-class BW_Clip_File(bwfile.BW_File):
+class BW_Clip_File(bw_file.BW_File):
 	def __init__(self, track = None):
 		super().__init__('note-clip')
-		document = bwobj.BW_Object(46)
+		document = bw_obj.BW_Object(46)
 		if track != None:
 			document.get("track_group(1245)").get("main_tracks(1246)").append(track)
-		self.contents = bwobj.BW_Object("clip_document(479)").set("document(2409)", document)
+		self.contents = bw_obj.BW_Object("clip_document(479)").set("document(2409)", document)
 
 	def set_meta(self):
 		self.meta.data['beat_length'] = 1.0
@@ -24,7 +23,7 @@ class BW_Clip_File(bwfile.BW_File):
 		self.contents.get(2409).get(1245).get(1246).insert(0, track)
 		return self
 
-class Clip(bwobj.BW_Object): #abstract
+class Clip(bw_obj.BW_Object): #abstract
 	def set_duration(self, length):
 		length = float(length)
 		self.set(38, length)
@@ -40,8 +39,8 @@ class Clip(bwobj.BW_Object): #abstract
 class Note_Clip(Clip):
 	def __init__(self, length = 4):
 		super().__init__(classnum = 71)
-		self.set(648, bwobj.BW_Object(191))
-		self.get(648).set(1180, bwobj.BW_Object(1740))
+		self.set(648, bw_obj.BW_Object(191))
+		self.get(648).set(1180, bw_obj.BW_Object(1740))
 		self.set_duration(length)
 
 	def set_duration(self, length):
@@ -59,13 +58,13 @@ class Note_Clip(Clip):
 			if key == each_key.get(238):
 				each_key.get(543).append(note)
 				return
-		self.get(648).get(1180).get(6347).append(bwobj.BW_Object(66).set(238, key))
+		self.get(648).get(1180).get(6347).append(bw_obj.BW_Object(66).set(238, key))
 		self.get(648).get(1180).get(6347)[-1].get(543).append(note)
 
-class Note(bwobj.BW_Object):
+class Note(bw_obj.BW_Object):
 	def __init__(self):
 		super().__init__(classnum = 102)
-		content_timeline = bwobj.BW_Object(41)
+		content_timeline = bw_obj.BW_Object(41)
 		self.set(6288, content_timeline)
 		self.set(648, content_timeline)
 

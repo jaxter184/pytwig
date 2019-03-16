@@ -6,7 +6,7 @@ import uuid, struct
 from pytwig.src.lib import util
 from pytwig.src.lib.luts import names, non_overlap, field_lists
 from pytwig import color, route
-from pytwig import file as bwfile
+from pytwig import bw_file
 
 def make(classnum):
 	return BW_Object(classnum)
@@ -34,7 +34,7 @@ class BW_Serializer(json.JSONEncoder):
 			return obj.__dict__
 		elif isinstance(obj, color.Color):
 			return obj.__dict__
-		elif isinstance(obj, bwfile.BW_File):
+		elif isinstance(obj, bw_file.BW_File):
 			return OrderedDict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
 		elif isinstance(obj, bytes):
 			return str(obj)
@@ -286,8 +286,8 @@ class BW_Object():
 				val = bytecode.read(16)
 				#val = None
 			else:
-				val = bwfile.BW_File()
-				sub_bytecode = bwfile.BW_Bytecode()
+				val = bw_file.BW_File()
+				sub_bytecode = bw_file.BW_Bytecode()
 				sub_bytecode.set_contents(bytecode.read(file_len))
 				val.decode(sub_bytecode)
 		elif parse_type == 0x12:	#object array
@@ -425,8 +425,8 @@ class BW_Object():
 						bytecode.write('00')
 				elif field_lists.field_type_list[fieldNum] == 0x0d:
 					bytecode.write('0d')
-					if isinstance(value, bwfile.BW_File):
-						sub_bytecode = bwfile.BW_Bytecode()
+					if isinstance(value, bw_file.BW_File):
+						sub_bytecode = bw_file.BW_Bytecode()
 						#sub_bytecode.set_string_mode("NULL_TERMINATED")
 						value.encode_to(sub_bytecode)
 						bytecode.write_int(sub_bytecode.contents_len)

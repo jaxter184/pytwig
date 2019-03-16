@@ -3,15 +3,15 @@
 from collections import OrderedDict
 from pytwig.src.lib.util import *
 #from pytwig.src.lib.luts import field_lists
-from pytwig import object as bwobj
-from pytwig import atom as bwatom
-from pytwig import panel as bwpanel
+from pytwig import bw_object
+from pytwig import bw_atom
+from pytwig import bw_panel
 
-class Contents(bwobj.BW_Object):
+class Contents(bw_object.BW_Object):
 	def add_atom(self, field, obj):
 		if isinstance(obj, int):
-			child = bwatom.Atom(obj)
-		elif isinstance(obj, bwatom.Atom):
+			child = bw_atom.Atom(obj)
+		elif isinstance(obj, bw_atom.Atom):
 			child = obj
 		else:
 			raise TypeError("adding something thats not an atom")
@@ -22,9 +22,9 @@ class Contents(bwobj.BW_Object):
 		return child
 
 	def add_child(self, obj):
-		#child = bwatom.Atom(classnum)
+		#child = bw_atom.Atom(classnum)
 		#self.get(173).append(child)
-		if isinstance(obj, bwatom.Atom):
+		if isinstance(obj, bw_atom.Atom):
 			return self.add_atom(173, obj)
 		elif isinstance(obj, list):
 			for i in obj:
@@ -32,7 +32,7 @@ class Contents(bwobj.BW_Object):
 			return None
 
 	def add_panel(self, classnum):
-		panel = bwpanel.Panel(classnum)
+		panel = bw_panel.Panel(classnum)
 		self.get(6213).append(panel)
 		return panel
 
@@ -40,8 +40,8 @@ class Contents(bwobj.BW_Object):
 		if isinstance(obj, int):
 			if not obj in (50, 154):
 				raise TypeError()
-			proxy = bwatom.Proxy_Port(obj)
-		elif isinstance(obj, bwatom.Atom):
+			proxy = bw_atom.Proxy_Port(obj)
+		elif isinstance(obj, bw_atom.Atom):
 			proxy = obj
 		if dir == 'in':
 			self.get(177).append(proxy)

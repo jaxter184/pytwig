@@ -3,30 +3,30 @@
 
 from collections import OrderedDict
 from pytwig.src.lib.luts import field_lists
-from pytwig import object as bwobj
+from pytwig import bw_object
 #import uuid, struct, json
 
-class Atom(bwobj.BW_Object):
+class Atom(bw_object.BW_Object):
 	"""Any BW_Object that has a settings field (fieldnum 6194) that contains component_settings
 	"""
 	def __init__(self, classnum = None, fields = None):
 		if classnum == None:
-			self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
-			self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
+			self.data["settings(6194)"] = bw_object.BW_Object("float_core.component_settings(236)")
+			self.data["settings(6194)"].data["desktop_settings(612)"] = bw_object.BW_Object("float_core.desktop_settings(17)")
 			return
 		if classnum in field_lists.class_type_list and field_lists.class_type_list[classnum][0] != 6194:
 			raise TypeError("Non-atom initialized with atom initializer: {}".format(classnum))
 		super().__init__(classnum, fields)
-		self.data["settings(6194)"] = bwobj.BW_Object("float_core.component_settings(236)")
-		self.data["settings(6194)"].data["desktop_settings(612)"] = bwobj.BW_Object("float_core.desktop_settings(17)")
+		self.data["settings(6194)"] = bw_object.BW_Object("float_core.component_settings(236)")
+		self.data["settings(6194)"].data["desktop_settings(612)"] = bw_object.BW_Object("float_core.desktop_settings(17)")
 
 	def connect(self, obj, quality = False, index = -1):
 		# add blank inports
 		if index == -1:
-			self.get(6194).get(614).append(bwobj.BW_Object(105))
+			self.get(6194).get(614).append(bw_object.BW_Object(105))
 		elif index >= 0:
 			while(len(self.get(6194).get(614)) <= index):
-				self.get(6194).get(614).append(bwobj.BW_Object(105))
+				self.get(6194).get(614).append(bw_object.BW_Object(105))
 
 		# set inport
 		if isinstance(obj, int):
@@ -55,7 +55,7 @@ class Atom(bwobj.BW_Object):
 class Proxy_Port(Atom):
 	def set_port(self, type):
 		if type == 'audio':
-			port = bwobj.BW_Object("float_core.audio_port(242)")
+			port = bw_object.BW_Object("float_core.audio_port(242)")
 			if self.classnum == 154:
 				port.set_multi({499: " Audio out (PARENT)", 372: 3,})
 			elif self.classnum == 50:
@@ -64,7 +64,7 @@ class Proxy_Port(Atom):
 				print(self.classnum)
 				raise Error()
 		elif type == 'note':
-			port = bwobj.BW_Object("float_core.note_port(61)")
+			port = bw_object.BW_Object("float_core.note_port(61)")
 			if self.classnum == 154:
 				port.set_multi({499: " Note out",})
 			elif self.classnum == 50:
@@ -77,4 +77,4 @@ class Proxy_Port(Atom):
 		return self
 
 #class Value_Atom(Atom):
-#class Value_Type(bwobj.BW_Object):
+#class Value_Type(bw_object.BW_Object):
