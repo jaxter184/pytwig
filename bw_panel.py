@@ -23,7 +23,7 @@ class Panel_Item(bw_object.BW_Object):
 		super().__init__(classnum, fields)
 		self.data["layout_settings(6226)"] = bw_object.BW_Object("float_core.grid_panel_item_layout_settings(1694)")
 
-	def create_item(self, classnum):
+	def add_item(self, classnum):
 		if isinstance(classnum, Panel_Item):
 			self.get(6221).append(classnum)
 			return self.get(6221)[-1]

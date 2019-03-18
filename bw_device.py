@@ -1,11 +1,9 @@
-# Class declarations of most Bitwig objects that arent atoms, like contents
+# Class declarations of most Bitwig objects related to devices except atoms
 
 from collections import OrderedDict
 from pytwig.src.lib.util import *
 #from pytwig.src.lib.luts import field_lists
-from pytwig import bw_object
-from pytwig import bw_atom
-from pytwig import bw_panel
+from pytwig import bw_object, bw_atom, bw_panel
 
 class Contents(bw_object.BW_Object):
 	def add_atom(self, field, obj):

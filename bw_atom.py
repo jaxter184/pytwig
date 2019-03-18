@@ -20,31 +20,33 @@ class Atom(bw_object.BW_Object):
 		self.data["settings(6194)"] = bw_object.BW_Object("float_core.component_settings(236)")
 		self.data["settings(6194)"].data["desktop_settings(612)"] = bw_object.BW_Object("float_core.desktop_settings(17)")
 
-	def connect(self, obj, quality = False, index = -1):
+	def connect(self, obj, quality = False, self_index = -1, outport_index = 0):
 		# add blank inports
-		if index == -1:
+		if self_index == -1:
 			self.get(6194).get(614).append(bw_object.BW_Object(105))
-		elif index >= 0:
-			while(len(self.get(6194).get(614)) <= index):
+		elif self_index >= 0:
+			while(len(self.get(6194).get(614)) <= self_index):
 				self.get(6194).get(614).append(bw_object.BW_Object(105))
 
 		# set inport
 		if isinstance(obj, int):
 			try:
 				if obj in (60, 154):
-					self.get(6194).get(614)[index].set(248, Proxy_Port(obj))
+					self.get(6194).get(614)[self_index].set(248, Proxy_Port(obj))
 				else:
-					self.get(6194).get(614)[index].set(248, Atom(obj))
+					self.get(6194).get(614)[self_index].set(248, Atom(obj))
 				if quality:
-					self.get(6194).get(614)[index].set(1943, True)
-				return self.get(6194).get(614)[index].get(248)
+					self.get(6194).get(614)[self_index].set(1943, True)
+				return self.get(6194).get(614)[self_index].get(248)
 			except:
 				raise KeyError("There was an issue adding an inport. Perhaps this isn't an atom?")
 		elif isinstance(obj, Atom):
-			self.get(6194).get(614)[index].set(248, obj)
+			self.get(6194).get(614)[self_index].set(248, obj)
 			if quality:
-				self.get(6194).get(614)[index].set(1943, True)
-			return self.get(6194).get(614)[index].get(248)
+				self.get(6194).get(614)[self_index].set(1943, True)
+			if outport_index:
+				self.get(6194).get(614)[self_index].set(249, outport_index)
+			return self.get(6194).get(614)[self_index].get(248)
 		else:
 			raise TypeError("Input is not a valid inport type")
 
