@@ -20,8 +20,10 @@ class BW_File:
 	def __str__(self):
 		return "File"
 
-	def __dict__(self):
-		return {"header":self.header, "meta":self.meta, "contents":self.contents}
+	def __iter__(self):
+		yield "header", self.header
+		yield "meta", self.meta
+		yield "contents", self.contents
 
 	def show(self):
 		print(str(self.__dict__()).replace(', ', ',\n').replace('{', '{\n').replace('}', '\n}'))
@@ -73,14 +75,6 @@ class BW_File:
 	def set_version(self, value):
 		self.meta.data['application_version_name'] = value
 		return self
-
-	def __dict__(self):
-		"""Serializes the object into a json format.
-
-		Returns:
-			Any: Returns a string containing the json data representing the object.
-		"""
-		return dict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
 
 	def serialize(self):
 		bw_object.serialized = [None]

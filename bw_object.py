@@ -17,31 +17,6 @@ import json
 
 # As far as I can tell, circular references are when an object is its own (grand+) child. Not sure exactly how to fix this, but for now, I'm going to use physicla modelled drums.
 
-class BW_Serializer(json.JSONEncoder):
-	def default(self, obj):
-		#print(obj)
-		if isinstance(obj, BW_Object):
-			#print(serialized)
-			if obj in serialized:
-				return OrderedDict([("object_ref",serialized.index(obj))])
-			else:
-				#print(obj)
-				serialized.append(obj)
-				return OrderedDict([("class",obj.classname), ("object_id",serialized.index(obj)), ("data",obj.data)])
-		elif isinstance(obj, uuid.UUID):
-			return str(obj)
-		elif isinstance(obj, route.Route):
-			return obj.__dict__
-		elif isinstance(obj, color.Color):
-			return obj.__dict__
-		elif isinstance(obj, bw_file.BW_File):
-			return OrderedDict([("header",obj.header), ("meta",obj.meta), ("contents",obj.contents)])
-		elif isinstance(obj, bytes):
-			return str(obj)
-		else:
-			print(type(obj))
-			json.JSONEncoder.default(self,obj)
-
 class BW_Object():
 	"""Anything that can be in the device contents, including atoms, types, and panels. Any object with the form {class, object_id, data}.
 
@@ -553,6 +528,8 @@ class BW_Object():
 	def iter_helper(self, obj):
 		if isinstance(obj, BW_Object) or isinstance(obj, color.Color) or isinstance(obj, route.Route):
 			return dict(obj)
+		elif isinstance(obj, bw_file.BW_File) or isinstance(obj, bytes):
+			return str(obj)
 		elif isinstance(obj, list):
 			output = []
 			for i in obj:
@@ -567,14 +544,17 @@ class BW_Object():
 		else:
 			serialized.append(self)
 			yield 'class', self.classname
-			yield 'object_id', serialized.index(self)
+			yield 'object_id', len(serialized) - 1 # serialized.index(self)
 			data_output = {}
 			for each_field in self.data:
 				data_output[each_field] = self.iter_helper(self.data[each_field])
+			print(str(data_output).replace(', ', '\n'))
+			print(json.dumps(data_output, indent=2))
 			yield 'data', data_output
 
 	def serialize(self):
 		serialized = [None]
+		#print(dict(self))
 		return json.dumps(dict(self), indent=2)
 
 	def debug_list_fields(self):
