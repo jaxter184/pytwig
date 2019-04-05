@@ -535,6 +535,11 @@ class BW_Object():
 			for i in obj:
 				output.append(self.iter_helper(i))
 			return output
+		elif isinstance(obj, dict):
+			output = {}
+			for key in obj:
+				output[key] = self.iter_helper(obj[key])
+			return output
 		else:
 			return obj
 
